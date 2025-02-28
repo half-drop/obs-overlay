@@ -2,6 +2,7 @@ package me.zziger.obsoverlay.mixin;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.entity.EntityRenderer;
+net.minecraft.client.render.entity.PlayerEntityRenderer
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.entity.Entity;
