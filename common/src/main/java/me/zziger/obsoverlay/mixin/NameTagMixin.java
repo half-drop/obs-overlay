@@ -22,12 +22,12 @@ public class NameTagMixin<T extends Entity> {
         if (OBSOverlayConfig.get().hidePlayerNameTags) {
 
         // Wrap rendering in OverlayRenderer for name tag overlay
-        OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTags);
+        OverlayRenderer.beginDraw();
 
         renderEntityNameTags(entity, yaw, tickDelta, matrices, vertexConsumers, light, ci);
         
         // End the drawing process
-        OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTags);
+        OverlayRenderer.endDraw();
 
         }
     }
