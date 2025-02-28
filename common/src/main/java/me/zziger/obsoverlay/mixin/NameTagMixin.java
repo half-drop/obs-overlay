@@ -19,21 +19,44 @@ import net.minecraft.text.Text;
 
 @Mixin(EntityRenderer.class)
 public class NameTagMixin<T extends Entity> {
+
+    private Method renderLabelIfPresentMethod;
+
     @Inject(at = @At("HEAD"), method = "render", cancellable = true)
-    private void renderNameTags(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        // Check if name tags should be hidden in the config
+    private void renderNameTags(T entity, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+        // If player name tags should be hidden according to the config, cancel the render
         if (OBSOverlayConfig.get().hidePlayerNameTags) {
-            ci.cancel(); // Cancel the default rendering if name tags should be hidden
+            ci.cancel(); // Cancel the default name tag rendering
             return; // Exit early
         }
 
-        // Wrap rendering in OverlayRenderer for name tag overlay
+        // Wrap the rendering of name tags inside the OverlayRenderer for custom overlay rendering
         OverlayRenderer.beginDraw();
-        
-        // Call the method to render name tags, this could be the original renderLabelIfPresent or any other custom logic
-        ((EntityRenderer<T>) (Object) this).renderLabelIfPresent(entity, text, matrices, vertexConsumers, light, tickDelta);
+
+        // Call the method to render the name tag, passing the necessary parameters
+        this.renderNameTag(entity, matrices, vertexConsumers, light, tickDelta);
 
         // End the drawing process for the overlay
-        OverlayRenderer.endDraw();   
+        OverlayRenderer.endDraw();
+    }
+
+    // Implement the method for rendering name tags
+    private void renderNameTag(T entity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta) {
+        if (entity.hasCustomName()) {
+            Text name = entity.getCustomName(); // Fetch the custom name of the entity
+
+            // Use reflection to call the protected renderLabelIfPresent method
+            try {
+                if (renderLabelIfPresentMethod == null) {
+                    renderLabelIfPresentMethod = EntityRenderer.class.getDeclaredMethod("renderLabelIfPresent", Entity.class, Text.class, MatrixStack.class, VertexConsumerProvider.class, int.class, float.class);
+                    renderLabelIfPresentMethod.setAccessible(true); // Make the method accessible
+                }
+
+                // Invoke the method on the current EntityRenderer instance
+                renderLabelIfPresentMethod.invoke(this, entity, name, matrices, vertexConsumers, light, tickDelta);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 }
