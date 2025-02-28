@@ -15,19 +15,17 @@ import me.zziger.obsoverlay.registry.AllDefaultOverlayComponents;
 @Mixin(EntityRenderer.class)
 public class NameTagMixin {
 
-    // 确保在 renderLabelIfPresent 被调用之前开始绘制
-    @Inject(method = "renderLabelIfPresent", at = @At(value = "INVOKE", 
-            target = "Lnet/minecraft/client/render/entity/EntityRenderer;renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", 
-            shift = At.Shift.AFTER))
+    // 确保在 name tag 渲染时调用自定义覆盖层渲染
+    @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", 
+            at = @At("HEAD"))
     private void drawStart(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        // 开始绘制覆盖层
         OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
     }
 
-    // 确保在 renderLabelIfPresent 完成后结束绘制
-    @Inject(method = "renderLabelIfPresent", at = @At("RETURN"))
+    // 在 name tag 渲染结束后结束覆盖层绘制
+    @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", 
+            at = @At("RETURN"))
     private void drawEnd(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        // 结束绘制覆盖层
         OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
     }
 }
