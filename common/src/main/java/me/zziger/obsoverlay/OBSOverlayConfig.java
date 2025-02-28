@@ -1,6 +1,5 @@
 package me.zziger.obsoverlay;
 
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
@@ -31,23 +30,22 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-
 @Config(name = OBSOverlay.MOD_ID)
 public class OBSOverlayConfig implements ConfigData {
     private static OBSOverlayConfig INSTANCE;
 
+    // 配置项
     public HashMap<String, Boolean> overlayComponents = new HashMap<>();
     public HashMap<String, Boolean> autoHideComponents = new HashMap<>();
     public HashMap<String, Boolean> overlayScreensList = new HashMap<>();
-
     public boolean hideAllScreens = false;
     public boolean overlayHandledScreensEnabled = false;
     public HashSet<String> overlayHandledScreensList = new HashSet<>();
-
     public transient HashSet<Class<?>> overlayScreensClasses = new HashSet<>();
-
     public boolean showTestIcon;
+    public boolean hidePlayerNameTags = false; // 新增配置项：隐藏玩家名称标签
 
+    // 配置初始化
     public static void init() {
         Path configPath = getPath();
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -69,6 +67,7 @@ public class OBSOverlayConfig implements ConfigData {
         INSTANCE.updateCache();
     }
 
+    // 更新缓存
     private void updateCache() {
         this.overlayScreensClasses.clear();
         this.overlayScreensList.forEach((screenId, state) -> {
@@ -86,6 +85,7 @@ public class OBSOverlayConfig implements ConfigData {
         return Platform.getConfigFolder().resolve(OBSOverlay.MOD_ID + ".json");
     }
 
+    // 配置界面
     public static Supplier<Screen> getScreenSupplier(Screen parent) {
         OBSOverlayConfig config = get();
 
@@ -96,13 +96,21 @@ public class OBSOverlayConfig implements ConfigData {
             ConfigEntryBuilder entryBuilder = builder.entryBuilder();
             ConfigCategory general = builder.getOrCreateCategory(Text.empty());
 
-
+            // 配置项：显示测试图标
             general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("obs_overlay.config.show_test_icon"), config.showTestIcon)
                     .setTooltip(Text.translatable("obs_overlay.config.show_test_icon.tooltip"))
                     .setDefaultValue(false)
                     .setSaveConsumer((value) -> config.showTestIcon = value)
                     .build());
 
+            // 配置项：隐藏玩家名称标签
+            general.addEntry(entryBuilder.startBooleanToggle(Text.translatable("obs_overlay.config.hide_player_name_tags"), config.hidePlayerNameTags)
+                    .setTooltip(Text.translatable("obs_overlay.config.hide_player_name_tags.tooltip"))
+                    .setDefaultValue(false)
+                    .setSaveConsumer((value) -> config.hidePlayerNameTags = value)
+                    .build());
+
+            // 配置项：选择要显示的组件
             HashMap<String, BooleanListEntry> overlayEntries = new HashMap<>();
             SubCategoryBuilder componentsToOverlay = entryBuilder.startSubCategory(Text.translatable("obs_overlay.config.components_to_overlay"))
                     .setExpanded(true)
@@ -119,6 +127,7 @@ public class OBSOverlayConfig implements ConfigData {
             });
             general.addEntry(componentsToOverlay.build());
 
+            // 配置项：屏幕选择
             SubCategoryBuilder screensToOverlay = entryBuilder.startSubCategory(Text.translatable("obs_overlay.config.screens_to_overlay"))
                     .setTooltip(Text.translatable("obs_overlay.config.screens_to_overlay.tooltip"));
 
@@ -177,6 +186,7 @@ public class OBSOverlayConfig implements ConfigData {
 
             general.addEntry(screensToOverlay.build());
 
+            // 配置项：自动隐藏组件
             SubCategoryBuilder autoHideComponents = entryBuilder.startSubCategory(Text.translatable("obs_overlay.config.auto_hide_components"))
                     .setExpanded(false)
                     .setTooltip(Text.translatable("obs_overlay.config.auto_hide_components.tooltip"));
