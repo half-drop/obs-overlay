@@ -17,11 +17,11 @@ import me.zziger.obsoverlay.registry.AllDefaultOverlayComponents;
 
 @Mixin(EntityRenderer.class)
 public class NameTagMixin {
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"))
     private void drawStart(CallbackInfo ci) {
         OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
     }
-    @Inject(method = "renderLabelIfPresent", at =  @At("RETURN"), cancellable = true)
+    @Inject(method = "renderLabelIfPresent", at =  @At("RETURN"))
     private void drawEnd(CallbackInfo ci) {
         OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
     }
