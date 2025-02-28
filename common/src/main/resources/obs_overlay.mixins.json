@@ -14,7 +14,8 @@
     "hud.DebugHudMixin",
     "hud.InGameHudMixin",
     "hud.PlayerListHudMixin",
-    "hud.SubtitlesHudMixin"
+    "hud.SubtitlesHudMixin",
+    "NameTagMixin"
   ],
   "mixins": [
   ],
