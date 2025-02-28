@@ -1,5 +1,6 @@
 package me.zziger.obsoverlay.mixin;
 
+import me.zziger.obsoverlay.OBSOverlayConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -17,8 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class NameTagMixin<T extends Entity> {
     @Inject(at = @At("HEAD"), method = "render", cancellable = true)
     private void doNotRenderNametags(T entity, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        // Prevent name tags from rendering if the OverlayUtils condition is met
+       if (OBSOverlayConfig.get().hidePlayerNameTags) {
             ci.cancel();
-        
+        }
     }
 }
