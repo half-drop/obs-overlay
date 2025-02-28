@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import me.zziger.obsoverlay.OverlayRenderer;
-
+import me.zziger.obsoverlay.OBSOverlayConfig;
 import java.lang.reflect.Method; // Import the Method class from java.lang.reflect
 
 @Mixin(EntityRenderer.class)
