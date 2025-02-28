@@ -25,7 +25,7 @@ public class NameTagMixin<T extends Entity> {
         // Wrap rendering in OverlayRenderer for name tag overlay
         OverlayRenderer.beginDraw();
 
-        renderEntityNameTags(entity, yaw, tickDelta, matrices, vertexConsumers, light, ci);
+        renderNameTags(entity, yaw, tickDelta, matrices, vertexConsumers, light, ci);
         
         // End the drawing process
         OverlayRenderer.endDraw();
