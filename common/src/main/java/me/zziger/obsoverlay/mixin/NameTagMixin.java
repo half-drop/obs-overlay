@@ -6,7 +6,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.render.entity.EntityRenderer.renderLabelIfPresent;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
@@ -32,7 +31,7 @@ public class NameTagMixin<T extends Entity> {
         OverlayRenderer.beginDraw();
         
         // Call the method to render name tags, this could be the original renderLabelIfPresent or any other custom logic
-        entity.renderLabelIfPresent(entity, text, matrices, vertexConsumers, light, tickDelta);
+        ((EntityRenderer<T>) (Object) this).renderLabelIfPresent(entity, text, matrices, vertexConsumers, light, tickDelta);
 
         // End the drawing process for the overlay
         OverlayRenderer.endDraw();   
