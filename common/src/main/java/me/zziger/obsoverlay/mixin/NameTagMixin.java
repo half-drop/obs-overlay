@@ -15,16 +15,16 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityRenderer.class)
-public class NameTagMixin {
+public class NameTagMixin<T extends Entity> {
     @Inject(at = @At("HEAD"), method = "render", cancellable = true)
-    private void renderNameTags(S state, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+    private void renderNameTags(T entity, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         // Check if name tags are enabled in the config
         if (OBSOverlayConfig.get().hidePlayerNameTags) {
 
         // Wrap rendering in OverlayRenderer for name tag overlay
         OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTags);
 
-        renderEntityNameTags(state, matrices, vertexConsumers, light);
+        renderEntityNameTags(entity, yaw, tickDelta, matrices, vertexConsumers, light, ci);
         
         // End the drawing process
         OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTags);
