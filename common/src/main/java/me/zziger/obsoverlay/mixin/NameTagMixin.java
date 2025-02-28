@@ -17,15 +17,11 @@ import me.zziger.obsoverlay.registry.AllDefaultOverlayComponents;
 
 @Mixin(EntityRenderer.class)
 public class NameTagMixin {
-    @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", 
-            at = @At(value = "INVOKE", 
-                     target = "Lnet/minecraft/client/render/entity/EntityRenderer;renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", 
-                     shift = At.Shift.AFTER))
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
     private void drawStart(CallbackInfo ci) {
         OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
     }
-   @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", 
-            at = @At("RETURN"))
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
     private void drawEnd(CallbackInfo ci) {
         OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
     }
