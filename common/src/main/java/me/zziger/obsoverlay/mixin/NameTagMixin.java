@@ -1,21 +1,17 @@
 package me.zziger.obsoverlay.mixin;
 
-import me.zziger.obsoverlay.OBSOverlayConfig;
-import me.zziger.obsoverlay.OverlayRenderer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import net.minecraft.text.Text;
+import me.zziger.obsoverlay.OverlayRenderer;
 
+import java.lang.reflect.Method; // Import the Method class from java.lang.reflect
 
 @Mixin(EntityRenderer.class)
 public class NameTagMixin<T extends Entity> {
