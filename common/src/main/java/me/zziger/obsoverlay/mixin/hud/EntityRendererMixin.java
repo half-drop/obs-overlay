@@ -17,18 +17,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityRenderer.class)
-public abstract class EntityRendererMixin<T extends Entity> {
+public abstract class NameTagMixin {
 
     @Shadow
     @Final
     protected EntityRenderDispatcher dispatcher;
 
-    // Intercepting the method responsible for rendering name tags
-    @Inject(at = @At("HEAD"), method = "renderLabelIfPresent", cancellable = true)
-    private void onRenderLabelIfPresent(Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        // Check if the name tag hiding option is enabled
+    @Inject(at = @At("HEAD"), method = "renderLabelIfPresent(Lnet/minecraft/client/render/entity/state/EntityRenderState;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V", cancellable = true)
+    private void onRenderLabelIfPresent(EntityRenderState state, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         if (OBSOverlayConfig.get().hidePlayerNameTags) {
-            // Skip rendering the name tag for the current entity
             ci.cancel();
         }
     }
