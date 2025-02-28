@@ -11,8 +11,9 @@ public class AllDefaultOverlayComponents {
     public static OverlayComponent titleSubtitle =  new HUDOverlayComponent("title_subtitle", false, true);
     public static OverlayComponent effects =        new HUDOverlayComponent("effects", false, true);
     public static OverlayComponent mainHud =        new HUDOverlayComponent("main_hud", false, true);
+    public static OverlayComponent nameTag =        new HUDOverlayComponent("nameTag", true, true);
 
     public static void init() {
-        OverlayComponentRegistry.registerComponents(debugMenu, chat, chatBar, playerList, subtitles, scoreboards, actionbar, titleSubtitle, effects, mainHud);
+        OverlayComponentRegistry.registerComponents(debugMenu, chat, chatBar, playerList, subtitles, scoreboards, actionbar, titleSubtitle, effects, mainHud, nameTag);
     }
 }
