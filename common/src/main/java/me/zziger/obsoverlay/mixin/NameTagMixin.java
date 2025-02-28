@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(EntityRenderer.class)
 public class NameTagMixin<T extends Entity> {
     @Inject(at = @At("HEAD"), method = "render", cancellable = true)
-    private void renderNameTags(T entity, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
+    private void renderNameTags(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
         // Check if name tags should be hidden in the config
         if (OBSOverlayConfig.get().hidePlayerNameTags) {
             ci.cancel(); // Cancel the default rendering if name tags should be hidden
@@ -29,9 +29,9 @@ public class NameTagMixin<T extends Entity> {
         OverlayRenderer.beginDraw();
         
         // Call the method to render name tags, this could be the original renderLabelIfPresent or any other custom logic
-        super.renderLabelIfPresent(entity, text, matrices, vertexConsumers, light, tickDelta);
+        entity.renderLabelIfPresent(entity, text, matrices, vertexConsumers, light, tickDelta);
 
         // End the drawing process for the overlay
-        OverlayRenderer.endDraw();
+        OverlayRenderer.endDraw();   
     }
 }
