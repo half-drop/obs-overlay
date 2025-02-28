@@ -15,17 +15,32 @@ import me.zziger.obsoverlay.registry.AllDefaultOverlayComponents;
 @Mixin(EntityRenderer.class)
 public class NameTagMixin {
 
-    // 确保在 name tag 渲染时调用自定义覆盖层渲染
+    // 嵌套计数器：用于跟踪当前正在渲染的名字标签嵌套数量
+    private static int drawCounter = 0;
+
+    /**
+     * 在每个名字标签开始渲染时调用，
+     * 如果当前是第一层调用，则启动覆盖层绘制。
+     */
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", 
             at = @At("HEAD"))
     private void drawStart(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
+        if (drawCounter == 0) {
+            OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
+        }
+        drawCounter++;
     }
 
-    // 在 name tag 渲染结束后结束覆盖层绘制
+    /**
+     * 在每个名字标签渲染结束时调用，
+     * 当所有嵌套调用结束后，结束覆盖层绘制。
+     */
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V", 
             at = @At("RETURN"))
     private void drawEnd(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
+        drawCounter--;
+        if (drawCounter == 0) {
+            OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
+        }
     }
 }
