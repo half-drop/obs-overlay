@@ -21,7 +21,7 @@ public class NameTagMixin {
     private void drawStart(CallbackInfo ci) {
         OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
     }
-    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "renderLabelIfPresent", at =  @At("RETURN"), cancellable = true)
     private void drawEnd(CallbackInfo ci) {
         OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
     }
