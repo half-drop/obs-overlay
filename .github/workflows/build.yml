@@ -2,7 +2,8 @@ name: Build and Release (1.21)
 
 on:
   push:
-    branches:
+    branches: 
+    - 1.21
 
 jobs:
   build:
