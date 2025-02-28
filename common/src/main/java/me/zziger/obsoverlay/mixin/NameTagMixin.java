@@ -22,7 +22,7 @@ public class NameTagMixin {
                     shift = At.Shift.AFTER))
     private void drawNameTagStart(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
         // 开始绘制 name tag 的覆盖层
-        OverlayRenderer.beginDraw();
+        OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
         
         // 清除 OpenGL 深度缓冲区，准备绘制
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
@@ -33,6 +33,6 @@ public class NameTagMixin {
             at = @At("RETURN"))
     private void drawNameTagEnd(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
         // 结束绘制 name tag 的覆盖层
-        OverlayRenderer.endDraw();
+        OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
     }
 }
