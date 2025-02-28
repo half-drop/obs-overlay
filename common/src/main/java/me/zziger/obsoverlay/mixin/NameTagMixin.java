@@ -1,6 +1,7 @@
 package me.zziger.obsoverlay.mixin;
 
 import me.zziger.obsoverlay.OBSOverlayConfig;
+import me.zziger.obsoverlay.OverlayRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
