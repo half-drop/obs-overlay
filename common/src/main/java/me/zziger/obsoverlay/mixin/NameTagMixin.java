@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import me.zziger.obsoverlay.OverlayRenderer;
-import me.zziger.obsoverlay.overlaycomponents.NameTagOverlayComponent;
 
 @Mixin(EntityRenderer.class)
 public class NameTagMixin {
@@ -23,7 +22,7 @@ public class NameTagMixin {
                     shift = At.Shift.AFTER))
     private void drawNameTagStart(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
         // 开始绘制 name tag 的覆盖层
-        OverlayRenderer.beginDraw(NameTagOverlayComponent.INSTANCE);
+        OverlayRenderer.beginDraw();
         
         // 清除 OpenGL 深度缓冲区，准备绘制
         GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
@@ -34,6 +33,6 @@ public class NameTagMixin {
             at = @At("RETURN"))
     private void drawNameTagEnd(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
         // 结束绘制 name tag 的覆盖层
-        OverlayRenderer.endDraw(NameTagOverlayComponent.INSTANCE);
+        OverlayRenderer.endDraw();
     }
 }
