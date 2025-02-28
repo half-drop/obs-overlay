@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+
 @Config(name = OBSOverlay.MOD_ID)
 public class OBSOverlayConfig implements ConfigData {
     private static OBSOverlayConfig INSTANCE;
