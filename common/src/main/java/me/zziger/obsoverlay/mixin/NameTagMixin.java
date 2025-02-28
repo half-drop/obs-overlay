@@ -28,6 +28,8 @@ public class NameTagMixin {
         
         // End the drawing process
         OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTags);
+
+        }
     }
 
 }
