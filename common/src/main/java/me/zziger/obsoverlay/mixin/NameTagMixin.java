@@ -19,11 +19,7 @@ public class NameTagMixin {
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V",
             at = @At("HEAD"))
     private void drawStart(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        // 如果是物品展示框，则不改变渲染方式
-        if (entity instanceof ItemFrame) {
-            return;
-        }
-        // 如果没有文字（或文字为空白），则不改变
+
         if (text == null || text.getString().trim().isEmpty()) {
             return;
         }
