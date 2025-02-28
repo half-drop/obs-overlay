@@ -17,8 +17,7 @@ public class NameTagMixin<T extends Entity, S extends EntityRenderState> {
     @Inject(at = @At("HEAD"), method = "render", cancellable = true)
     private void doNotRenderNametags(S state, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         // Prevent name tags from rendering if the OverlayUtils condition is met
-        if (OverlayUtils.shouldHideNametags((T) state.getEntity())) {
             ci.cancel();
-        }
+        
     }
 }
