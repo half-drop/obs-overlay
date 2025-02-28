@@ -3,8 +3,6 @@ name: Build and Release (1.21)
 on:
   push:
     branches:
-      - main  # You can specify other branches here if necessary
-    # Remove the tags section to build on all commits
 
 jobs:
   build:
