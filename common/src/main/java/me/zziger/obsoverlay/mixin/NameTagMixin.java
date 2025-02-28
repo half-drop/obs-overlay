@@ -1,58 +1,36 @@
 package me.zziger.obsoverlay.mixin;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.entity.Entity;
 import net.minecraft.text.Text;
+import org.lwjgl.opengl.GL11;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import me.zziger.obsoverlay.OverlayRenderer;
 import me.zziger.obsoverlay.OBSOverlayConfig;
-import java.lang.reflect.Method; // Import the Method class from java.lang.reflect
 
 @Mixin(EntityRenderer.class)
-public class NameTagMixin<T extends Entity> {
+public class NameTagMixin {
 
-    private Method renderLabelIfPresentMethod;
-
-    @Inject(at = @At("HEAD"), method = "render", cancellable = true)
-    private void renderNameTags(T entity, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
-        // If player name tags should be hidden according to the config, cancel the render
-        if (OBSOverlayConfig.get().hidePlayerNameTags) {
-            ci.cancel(); // Cancel the default name tag rendering
-            return; // Exit early
-        }
-
-        // Wrap the rendering of name tags inside the OverlayRenderer for custom overlay rendering
-        OverlayRenderer.beginDraw();
-
-        // Call the method to render the name tag, passing the necessary parameters
-        this.renderNameTag(entity, matrices, vertexConsumers, light, tickDelta);
-
-        // End the drawing process for the overlay
-        OverlayRenderer.endDraw();
+    // This method will be injected into the render method at the point where the name tag is being drawn.
+    @Inject(method = "render(Lnet/minecraft/entity/Entity;FJJ)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/EntityRenderer;renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider$Immediate;I)V", shift = At.Shift.AFTER))
+    private void drawNameTagStart(Entity entity, float yaw, double x, double y, double z, CallbackInfo ci) {
+        // Begin drawing the overlay for name tag rendering
+        OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
+        
+        // Clear OpenGL to prepare for rendering
+        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
     }
 
-    // Implement the method for rendering name tags
-    private void renderNameTag(T entity, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta) {
-        if (entity.hasCustomName()) {
-            Text name = entity.getCustomName(); // Fetch the custom name of the entity
-
-            // Use reflection to call the protected renderLabelIfPresent method
-            try {
-                if (renderLabelIfPresentMethod == null) {
-                    renderLabelIfPresentMethod = EntityRenderer.class.getDeclaredMethod("renderLabelIfPresent", Entity.class, Text.class, MatrixStack.class, VertexConsumerProvider.class, int.class, float.class);
-                    renderLabelIfPresentMethod.setAccessible(true); // Make the method accessible
-                }
-
-                // Invoke the method on the current EntityRenderer instance
-                renderLabelIfPresentMethod.invoke(this, entity, name, matrices, vertexConsumers, light, tickDelta);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+    // This method will be injected after the name tag rendering is done.
+    @Inject(method = "render(Lnet/minecraft/entity/Entity;FJJ)V", at = @At("RETURN"))
+    private void drawNameTagEnd(Entity entity, float yaw, double x, double y, double z, CallbackInfo ci) {
+        // End drawing the overlay for name tag rendering
+        OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
     }
 }
