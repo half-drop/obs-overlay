@@ -15,16 +15,16 @@ import me.zziger.obsoverlay.registry.AllDefaultOverlayComponents;
 @Mixin(EntityRenderer.class)
 public class NameTagMixin {
 
-    // 嵌套计数器：确保每帧只调用一对 begin/end 操作
+    // 嵌套计数器，确保每帧只调用一对 begin/end 操作
     private static int drawCounter = 0;
 
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V",
             at = @At("HEAD"))
     private void drawStart(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        if (text == null || text.getString().trim().isEmpty()) {
+        // 只有当文本符合 Minecraft 用户名格式时，才进行自定义绘制操作
+        if (!isMinecraftUsername(text)) {
             return;
         }
-        // 只有在最外层调用时启动覆盖层绘制
         if (drawCounter == 0) {
             OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
         }
@@ -34,13 +34,22 @@ public class NameTagMixin {
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V",
             at = @At("RETURN"))
     private void drawEnd(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        if (text == null || text.getString().trim().isEmpty()) {
+        if (!isMinecraftUsername(text)) {
             return;
         }
         drawCounter--;
-        // 当所有嵌套调用结束后，结束覆盖层绘制
         if (drawCounter == 0) {
             OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
         }
+    }
+
+    /**
+     * 判断给定的 Text 是否为有效的 Minecraft 用户名。
+     * Minecraft 用户名要求长度在 3 到 16 之间，并且只包含字母、数字和下划线。
+     */
+    private boolean isMinecraftUsername(Text text) {
+        if (text == null) return false;
+        String name = text.getString().trim();
+        return name.matches("^[A-Za-z0-9_]{3,16}$");
     }
 }
