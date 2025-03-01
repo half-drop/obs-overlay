@@ -20,7 +20,7 @@ public class NameTagMixin {
         at = @At("HEAD")
     )
     private void drawStart(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int someInt, float someFloat, CallbackInfo ci) {
-         if (!isMinecraftUsername(text)) return;
+         //if (!isMinecraftUsername(text)) return;
          OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
     }
 
@@ -29,7 +29,7 @@ public class NameTagMixin {
         at = @At("RETURN")
     )
     private void drawEnd(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int someInt, float someFloat, CallbackInfo ci) {
-         if (!isMinecraftUsername(text)) return;
+        // if (!isMinecraftUsername(text)) return;
          OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
     }
 
