@@ -35,7 +35,7 @@ public class NameTagMixin {
 
     private boolean isMinecraftUsername(Text text) {
         if (text == null) return false;
-        String name = text.getString();
+        String name = text.getString().trim();
         return name.matches("^[A-Za-z0-9_]{3,16}$");
     }
 }
