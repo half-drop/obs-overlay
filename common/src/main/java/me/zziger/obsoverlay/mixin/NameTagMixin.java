@@ -16,13 +16,13 @@ import me.zziger.obsoverlay.registry.AllDefaultOverlayComponents;
 public class NameTagMixin {
 
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V",at = @At("HEAD"))
-    private void drawStart(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta) {
+    private void drawStart(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta) {
          if (!isMinecraftUsername(text)) return;
          OverlayRenderer.beginDraw(AllDefaultOverlayComponents.nameTag);
     }
 
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V",at = @At("RETURN"))
-    private void drawEnd(T entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta) {
+    private void drawEnd(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta) {
          if (!isMinecraftUsername(text)) return;
          OverlayRenderer.endDraw(AllDefaultOverlayComponents.nameTag);
     }
