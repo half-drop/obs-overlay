@@ -29,9 +29,6 @@ public class NameTagMixin {
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/entity/Entity;Lnet/minecraft/text/Text;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IF)V",
             at = @At("RETURN"))
     private void drawEnd(Entity entity, Text text, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float tickDelta, CallbackInfo ci) {
-        if (entity instanceof ItemFrame) {
-            return;
-        }
         if (text == null || text.getString().trim().isEmpty()) {
             return;
         }
