@@ -1,7 +1,10 @@
 name: Build and Release (1.21.11)
 
 on:
+  workflow_dispatch:
   push:
+    branches:
+      - '1.21.11'
     tags:
       - '1.21.11/*'
 
@@ -39,6 +42,7 @@ jobs:
           cat gradle.properties | grep ^supported_version | sed -e 's/ //g' >> $GITHUB_ENV
 
       - name: Validate Mod version
+        if: startsWith(github.ref, 'refs/tags/')
         uses: nick-fields/assert-action@v2
         with:
           expected: '${{ github.ref_name }}'
@@ -54,7 +58,17 @@ jobs:
           rm -rf ./*/build/libs/*-transformProduction*.jar
           ls ./*/build/libs/*.jar | sed 's/.jar$//g' | xargs -i mv {}{.jar,-$minecraft_version.jar}
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: obs-overlay-${{ env.minecraft_version }}-${{ env.mod_version }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            */build/libs/*.jar
+
       - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -67,6 +81,7 @@ jobs:
             */build/libs/*.jar
 
       - name: Release to Modrinth and CurseForge
+        if: startsWith(github.ref, 'refs/tags/') && env.CURSE_API_KEY != '' && env.MODRINTH_TOKEN != ''
         run: ./gradlew publish publishUnified --stacktrace --no-daemon
         env:
 #          MAVEN_PASS: ${{ secrets.MAVEN_PASS }}
