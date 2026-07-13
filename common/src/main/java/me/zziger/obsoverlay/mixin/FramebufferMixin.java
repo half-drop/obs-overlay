@@ -4,8 +4,6 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 import me.zziger.obsoverlay.OBSOverlay;
 import me.zziger.obsoverlay.OBSOverlayConfig;
 import me.zziger.obsoverlay.OverlayRenderer;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gui.DrawContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

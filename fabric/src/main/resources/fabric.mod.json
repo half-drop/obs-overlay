@@ -9,8 +9,8 @@
   ],
   "contact": {
     "homepage": "https://modrinth.com/mod/obs-overlay",
-    "sources": "https://github.com/zziger/obs-overlay",
-    "issues": "https://github.com/zziger/obs-overlay/issues"
+    "sources": "https://github.com/half-drop/obs-overlay",
+    "issues": "https://github.com/half-drop/obs-overlay/issues"
   },
   "license": "MIT",
   "icon": "assets/obs_overlay/icon.png",
@@ -37,10 +37,9 @@
   ],
   "depends": {
     "fabricloader": ">=0.19.3",
-    "minecraft": "~1.21.11",
-    "java": ">=21",
-    "architectury": ">=19.0.1",
-    "cloth-config": ">=21.11.153",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "cloth-config": ">=26.2.155",
     "fabric-api": "*"
   },
   "suggests": {

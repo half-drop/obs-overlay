@@ -1,9 +1,8 @@
 package me.zziger.obsoverlay;
 
-import me.zziger.obsoverlay.mixin.accessor.GameRendererAccessor;
 import me.zziger.obsoverlay.mixin.accessor.GuiRenderStateAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.state.gui.GuiRenderState;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -17,19 +16,19 @@ public final class GuiOverlayManager {
     }
 
     public static void begin(boolean hidden) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.gameRenderer == null) return;
-        GuiRenderState state = ((GameRendererAccessor) client.gameRenderer).obsOverlay$getGuiState();
-        state.createNewRootLayer();
+        GuiRenderState state = client.gameRenderer.gameRenderState().guiRenderState;
+        state.nextStratum();
         var layers = ((GuiRenderStateAccessor) state).obsOverlay$getRootLayers();
         Object layer = layers.getLast();
         (hidden ? HIDDEN_LAYERS : OVERLAY_LAYERS).add(layer);
     }
 
     public static void end() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.gameRenderer == null) return;
-        ((GameRendererAccessor) client.gameRenderer).obsOverlay$getGuiState().createNewRootLayer();
+        client.gameRenderer.gameRenderState().guiRenderState.nextStratum();
     }
 
     public static boolean isOverlayLayer(Object layer) {

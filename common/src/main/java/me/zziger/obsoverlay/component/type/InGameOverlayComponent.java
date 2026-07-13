@@ -1,7 +1,7 @@
 package me.zziger.obsoverlay.component.type;
 
 import me.zziger.obsoverlay.OverlayFramebufferType;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public class InGameOverlayComponent extends DefaultOverlayComponent {
     public InGameOverlayComponent(Identifier id, boolean defaultOverlay, boolean canAutoHide) {

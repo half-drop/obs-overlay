@@ -1,15 +1,15 @@
 package me.zziger.obsoverlay.mixin;
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import me.zziger.obsoverlay.GuiOverlayManager;
 import me.zziger.obsoverlay.OBSOverlay;
 import me.zziger.obsoverlay.OverlayFramebufferType;
 import me.zziger.obsoverlay.OverlayRenderer;
 import me.zziger.obsoverlay.mixin.accessor.GuiRenderStateAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.render.GuiRenderer;
-import net.minecraft.client.gui.render.state.GuiRenderState;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -20,20 +20,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Mixin(GuiRenderer.class)
 public abstract class GuiRendererMixin {
-    @Shadow @Final private GuiRenderState state;
+    @Shadow @Final private GuiRenderState renderState;
 
     private boolean obsOverlay$renderingPartition;
     private boolean obsOverlay$renderingOverlay;
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void obsOverlay$renderPartitions(GpuBufferSlice fogBuffer, CallbackInfo ci) {
+    private void obsOverlay$renderPartitions(CallbackInfo ci) {
         if (obsOverlay$renderingPartition) return;
 
-        GuiRenderStateAccessor accessor = (GuiRenderStateAccessor) state;
+        GuiRenderStateAccessor accessor = (GuiRenderStateAccessor) renderState;
         List<Object> all = new ArrayList<>(accessor.obsOverlay$getRootLayers());
+        Set<Object> itemModelIdentities = Set.copyOf(accessor.obsOverlay$getItemModelIdentities());
         List<Object> normal = new ArrayList<>();
         List<Object> overlay = new ArrayList<>();
         for (Object layer : all) {
@@ -46,14 +48,15 @@ public abstract class GuiRendererMixin {
         obsOverlay$renderingPartition = true;
         try {
             accessor.obsOverlay$setRootLayers(normal);
-            ((GuiRenderer) (Object) this).render(fogBuffer);
+            ((GuiRenderer) (Object) this).render();
 
             if (!overlay.isEmpty()) {
                 accessor.obsOverlay$setRootLayers(overlay);
+                accessor.obsOverlay$getItemModelIdentities().addAll(itemModelIdentities);
                 obsOverlay$renderingOverlay = true;
                 OverlayRenderer renderer = OBSOverlay.getRenderer();
                 if (renderer != null) renderer.markDirty(OverlayFramebufferType.NORMAL);
-                ((GuiRenderer) (Object) this).render(fogBuffer);
+                ((GuiRenderer) (Object) this).render();
                 obsOverlay$renderingOverlay = false;
             }
         } finally {
@@ -65,12 +68,12 @@ public abstract class GuiRendererMixin {
         ci.cancel();
     }
 
-    @Redirect(method = "renderPreparedDraws", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;getFramebuffer()Lnet/minecraft/client/gl/Framebuffer;"))
-    private Framebuffer obsOverlay$selectFramebuffer(MinecraftClient client) {
+    @Redirect(method = "draw", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;mainRenderTarget()Lcom/mojang/blaze3d/pipeline/RenderTarget;"))
+    private RenderTarget obsOverlay$selectFramebuffer(GameRenderer gameRenderer) {
         OverlayRenderer renderer = OBSOverlay.getRenderer();
         if (obsOverlay$renderingOverlay && renderer != null) {
             return renderer.getFramebuffer(OverlayFramebufferType.NORMAL);
         }
-        return client.getFramebuffer();
+        return gameRenderer.mainRenderTarget();
     }
 }

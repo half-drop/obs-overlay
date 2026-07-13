@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
-issueTrackerURL = "https://github.com/zziger/obs-overlay/issues"
+issueTrackerURL = "https://github.com/half-drop/obs-overlay/issues"
 license = "MIT"
 
 [[mods]]
@@ -17,28 +17,21 @@ logoFile = "assets/obs_overlay/icon.png"
 [[dependencies.obs_overlay]]
 modId = "neoforge"
 type = "required"
-versionRange = "[21.11,)"
+versionRange = "[26.2.0.0-beta,)"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.obs_overlay]]
 modId = "minecraft"
 type = "required"
-versionRange = "[1.21.11,1.21.12)"
+versionRange = "[26.2,26.3)"
 ordering = "NONE"
-side = "BOTH"
-
-[[dependencies.obs_overlay]]
-modId = "architectury"
-type = "required"
-versionRange = "[19.0.1,)"
-ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies.obs_overlay]]
 modId = "cloth_config"
 type = "required"
-versionRange = "[21.11.153,)"
+versionRange = "[26.2.155,)"
 ordering = "AFTER"
 side = "BOTH"
 

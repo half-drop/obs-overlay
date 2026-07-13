@@ -16,14 +16,13 @@ At the moment only **Windows** is supported.
 ### Dependencies
 
 - Cloth Config API
-- Architectury API
 - Fabric API (Fabric only)
 - Mod Menu (Optional, Fabric only)
 
 ## Features
 
 > [!NOTE]
-> Minecraft 1.21.11 changed world rendering to a deferred command system. Version 2.0.0 supports HUD elements and screens; in-world element hiding is temporarily unavailable so the settings cannot give a false sense of privacy.
+> Modern Minecraft uses deferred world and GUI rendering. Version 2.1.0 supports HUD elements and screens on Minecraft 26.2; in-world element hiding remains unavailable so the settings cannot give a false sense of privacy.
 
 This mod lets you hide any combination of the following components:
 
@@ -70,7 +69,7 @@ By default only Debug menu (F3) is hidden.
 Mod settings can be accessed by:
 - Clicking `Settings` -> `Video Settings` -> `OBS Overlay settings`
 - Opening mod settings through ModMenu (Fabric only)
-- Opening mod settings through Mods menu (Forge only)
+- Opening mod settings through the Mods menu (NeoForge only)
 
 ![Settings](.github/settings.png)
 

@@ -1,16 +1,16 @@
 {
   "required": true,
   "package": "me.zziger.obsoverlay.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_25",
   "minVersion": "0.8",
   "client": [
     "FramebufferMixin",
     "GameRendererMixin",
+    "GuiMixin",
     "GuiRendererMixin",
     "MinecraftClientMixin",
     "ScreenMixin",
     "VideoOptionsScreenMixin",
-    "accessor.GameRendererAccessor",
     "accessor.GuiRenderStateAccessor",
     "components.ChatHudMixin",
     "components.ChatScreenMixin",

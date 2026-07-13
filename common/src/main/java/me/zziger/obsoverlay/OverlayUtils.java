@@ -1,26 +1,15 @@
 package me.zziger.obsoverlay;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.toast.SystemToast;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.network.chat.Component;
 
 public class OverlayUtils {
-    public static void forceDraw(VertexConsumerProvider consumer) {
-        if (consumer instanceof VertexConsumerProvider.Immediate immediate) immediate.draw();
-    }
-
-    public static void showToast(Text title, Text description) {
-        MinecraftClient.getInstance().submit(() ->
-                MinecraftClient.getInstance()
-                        .getToastManager()
-                        .add(new SystemToast(SystemToast.Type.LOW_DISK_SPACE, title, description))
+    public static void showToast(Component title, Component description) {
+        Minecraft.getInstance().submit(() ->
+                Minecraft.getInstance()
+                        .gui.toastManager()
+                        .addToast(new SystemToast(SystemToast.SystemToastId.LOW_DISK_SPACE, title, description))
         );
     }
 }

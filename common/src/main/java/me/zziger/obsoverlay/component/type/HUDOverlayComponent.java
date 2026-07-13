@@ -1,6 +1,6 @@
 package me.zziger.obsoverlay.component.type;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public class HUDOverlayComponent extends DefaultOverlayComponent {
     public HUDOverlayComponent(Identifier id, boolean defaultOverlay, boolean canAutoHide) {

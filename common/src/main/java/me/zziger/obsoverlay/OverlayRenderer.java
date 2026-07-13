@@ -1,20 +1,20 @@
 package me.zziger.obsoverlay;
 
+import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import me.zziger.obsoverlay.component.IOverlayComponent;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.GlBackend;
-import net.minecraft.client.gl.SimpleFramebuffer;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.texture.GlTextureView;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.system.MemoryStack;
+import org.joml.Vector4f;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
@@ -56,8 +56,9 @@ public class OverlayRenderer implements Closeable {
     private boolean framebufferOverridden;
     private int shaderProgram;
     private int vertexArray;
-    private Framebuffer depthBackupFramebuffer;
+    private RenderTarget depthBackupFramebuffer;
     private final Map<OverlayFramebufferType, OverlayFramebuffer> framebuffers = new EnumMap<>(OverlayFramebufferType.class);
+    private final Map<RenderTarget, Integer> glFramebuffers = new java.util.IdentityHashMap<>();
 
     OverlayRenderer() {
         OverlayHook.init();
@@ -69,21 +70,22 @@ public class OverlayRenderer implements Closeable {
     @Override
     public void close() {
         OverlayHook.unsubscribe(this::renderFrame);
-        framebuffers.values().forEach(framebuffer -> framebuffer.object.delete());
-        if (depthBackupFramebuffer != null) depthBackupFramebuffer.delete();
+        framebuffers.values().forEach(framebuffer -> framebuffer.object.destroyBuffers());
+        if (depthBackupFramebuffer != null) depthBackupFramebuffer.destroyBuffers();
         if (shaderProgram != 0) GL20.glDeleteProgram(shaderProgram);
         if (vertexArray != 0) GL30.glDeleteVertexArrays(vertexArray);
+        glFramebuffers.values().forEach(GL30::glDeleteFramebuffers);
     }
 
     private void initializeFramebuffers() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        int width = client.getWindow().getFramebufferWidth();
-        int height = client.getWindow().getFramebufferHeight();
-        depthBackupFramebuffer = new SimpleFramebuffer("OBS Overlay depth backup", width, height, true);
+        Minecraft client = Minecraft.getInstance();
+        int width = client.getWindow().getWidth();
+        int height = client.getWindow().getHeight();
+        depthBackupFramebuffer = new TextureTarget("OBS Overlay depth backup", width, height, true, GpuFormat.RGBA8_UNORM);
         framebuffers.put(OverlayFramebufferType.DEPTH,
-                new OverlayFramebuffer(new SimpleFramebuffer("OBS Overlay depth", width, height, true)));
+                new OverlayFramebuffer(new TextureTarget("OBS Overlay depth", width, height, true, GpuFormat.RGBA8_UNORM)));
         framebuffers.put(OverlayFramebufferType.NORMAL,
-                new OverlayFramebuffer(new SimpleFramebuffer("OBS Overlay GUI", width, height, true)));
+                new OverlayFramebuffer(new TextureTarget("OBS Overlay GUI", width, height, true, GpuFormat.RGBA8_UNORM)));
         beginFrame();
     }
 
@@ -112,7 +114,7 @@ public class OverlayRenderer implements Closeable {
         return shader;
     }
 
-    public Framebuffer getFramebuffer(OverlayFramebufferType type) {
+    public RenderTarget getFramebuffer(OverlayFramebufferType type) {
         OverlayFramebuffer framebuffer = framebuffers.get(type);
         return framebuffer == null ? null : framebuffer.object;
     }
@@ -121,18 +123,24 @@ public class OverlayRenderer implements Closeable {
         return framebufferOverridden;
     }
 
-    private int getFramebufferId(Framebuffer framebuffer) {
-        GlBackend backend = (GlBackend) RenderSystem.getDevice();
-        return ((GlTextureView) framebuffer.getColorAttachmentView())
-                .getOrCreateFramebuffer(backend.getBufferManager(), framebuffer.getDepthAttachment());
+    private int getFramebufferId(RenderTarget framebuffer) {
+        int id = glFramebuffers.computeIfAbsent(framebuffer, ignored -> GL30.glGenFramebuffers());
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, id);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                ((GlTexture) framebuffer.getColorTexture()).glId(), 0);
+        if (framebuffer.getDepthTexture() != null) {
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                    ((GlTexture) framebuffer.getDepthTexture()).glId(), 0);
+        }
+        return id;
     }
 
     public void backupDepth(boolean overrideDepth) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         GlStateSnapshot state = new GlStateSnapshot();
         try {
             GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, getFramebufferId(depthBackupFramebuffer));
-            renderQuad(false, true, overrideDepth, client.getFramebuffer());
+            renderQuad(false, true, overrideDepth, client.gameRenderer.mainRenderTarget());
         } finally {
             state.restore();
         }
@@ -185,19 +193,19 @@ public class OverlayRenderer implements Closeable {
         endDraw();
     }
 
-    public void onResolutionChanged(MinecraftClient client) {
-        int width = client.getWindow().getFramebufferWidth();
-        int height = client.getWindow().getFramebufferHeight();
+    public void onResolutionChanged(Minecraft client) {
+        int width = client.getWindow().getWidth();
+        int height = client.getWindow().getHeight();
         framebuffers.values().forEach(framebuffer -> framebuffer.object.resize(width, height));
         depthBackupFramebuffer.resize(width, height);
     }
 
-    private void renderQuad(boolean writeDepth, boolean depthTest, boolean overrideDepth, Framebuffer framebuffer) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    private void renderQuad(boolean writeDepth, boolean depthTest, boolean overrideDepth, RenderTarget framebuffer) {
+        Minecraft client = Minecraft.getInstance();
         if (writeDepth) {
             GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, getFramebufferId(depthBackupFramebuffer));
-            GL30.glBlitFramebuffer(0, 0, depthBackupFramebuffer.textureWidth, depthBackupFramebuffer.textureHeight,
-                    0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight(),
+            GL30.glBlitFramebuffer(0, 0, depthBackupFramebuffer.width, depthBackupFramebuffer.height,
+                    0, 0, client.getWindow().getWidth(), client.getWindow().getHeight(),
                     GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         }
 
@@ -210,16 +218,16 @@ public class OverlayRenderer implements Closeable {
         GL11.glColorMask(true, true, true, true);
         GL20.glBlendEquationSeparate(GL14.GL_FUNC_ADD, GL14.GL_FUNC_ADD);
         GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glViewport(0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight());
+        GL11.glViewport(0, 0, client.getWindow().getWidth(), client.getWindow().getHeight());
 
         GL20.glUseProgram(shaderProgram);
         GL20.glUniform1i(GL20.glGetUniformLocation(shaderProgram, "ColorSampler"), 0);
         GL20.glUniform1i(GL20.glGetUniformLocation(shaderProgram, "DepthSampler"), 1);
         GL20.glUniform1i(GL20.glGetUniformLocation(shaderProgram, "OverrideDepth"), overrideDepth ? 1 : 0);
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, ((GlTexture) framebuffer.getColorAttachment()).getGlId());
+        GL11.glBindTexture(GL_TEXTURE_2D, ((GlTexture) framebuffer.getColorTexture()).glId());
         GL13.glActiveTexture(GL13.GL_TEXTURE1);
-        GL11.glBindTexture(GL_TEXTURE_2D, ((GlTexture) framebuffer.getDepthAttachment()).getGlId());
+        GL11.glBindTexture(GL_TEXTURE_2D, ((GlTexture) framebuffer.getDepthTexture()).glId());
         GL30.glBindVertexArray(vertexArray);
         GL11.glDrawArrays(GL_TRIANGLES, 0, 3);
         GL30.glBindVertexArray(0);
@@ -230,12 +238,12 @@ public class OverlayRenderer implements Closeable {
     public void beginFrame() {
         var encoder = RenderSystem.getDevice().createCommandEncoder();
         framebuffers.values().forEach(framebuffer -> {
-            encoder.clearColorAndDepthTextures(framebuffer.object.getColorAttachment(), 0,
-                    framebuffer.object.getDepthAttachment(), 1.0);
+            encoder.clearColorAndDepthTextures(framebuffer.object.getColorTexture(), new Vector4f(0.0F),
+                    framebuffer.object.getDepthTexture(), 0.0);
             framebuffer.dirty = false;
         });
-        encoder.clearColorAndDepthTextures(depthBackupFramebuffer.getColorAttachment(), 0,
-                depthBackupFramebuffer.getDepthAttachment(), 1.0);
+        encoder.clearColorAndDepthTextures(depthBackupFramebuffer.getColorTexture(), new Vector4f(0.0F),
+                depthBackupFramebuffer.getDepthTexture(), 0.0);
     }
 
     private void renderFramebuffer(OverlayFramebufferType type) {
@@ -252,6 +260,10 @@ public class OverlayRenderer implements Closeable {
     }
 
     public void renderFrame() {
+        // NeoForge's early loading window swaps on a helper thread with a different GL context.
+        // Overlay resources belong to Minecraft's render context and must never be used there.
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || !client.isSameThread() || !RenderSystem.isOnRenderThread()) return;
         GlStateSnapshot state = new GlStateSnapshot();
         try {
             renderFramebuffer(OverlayFramebufferType.DEPTH);
