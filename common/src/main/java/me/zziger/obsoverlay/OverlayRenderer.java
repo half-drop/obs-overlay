@@ -11,10 +11,14 @@ import net.minecraft.client.texture.GlTexture;
 import net.minecraft.client.texture.GlTextureView;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.system.MemoryStack;
 
 import java.io.Closeable;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -125,10 +129,13 @@ public class OverlayRenderer implements Closeable {
 
     public void backupDepth(boolean overrideDepth) {
         MinecraftClient client = MinecraftClient.getInstance();
-        int previous = GlStateManager.getFrameBuffer(GL_DRAW_FRAMEBUFFER);
-        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, getFramebufferId(depthBackupFramebuffer));
-        renderQuad(false, true, overrideDepth, client.getFramebuffer());
-        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, previous);
+        GlStateSnapshot state = new GlStateSnapshot();
+        try {
+            GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, getFramebufferId(depthBackupFramebuffer));
+            renderQuad(false, true, overrideDepth, client.getFramebuffer());
+        } finally {
+            state.restore();
+        }
     }
 
     private void backupFramebuffer() {
@@ -188,19 +195,22 @@ public class OverlayRenderer implements Closeable {
     private void renderQuad(boolean writeDepth, boolean depthTest, boolean overrideDepth, Framebuffer framebuffer) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (writeDepth) {
-            GlStateManager._glBindFramebuffer(GL_READ_FRAMEBUFFER, getFramebufferId(depthBackupFramebuffer));
-            GlStateManager._glBlitFrameBuffer(0, 0, depthBackupFramebuffer.textureWidth, depthBackupFramebuffer.textureHeight,
+            GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, getFramebufferId(depthBackupFramebuffer));
+            GL30.glBlitFramebuffer(0, 0, depthBackupFramebuffer.textureWidth, depthBackupFramebuffer.textureHeight,
                     0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight(),
                     GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-            GlStateManager._glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         }
 
-        if (depthTest) GlStateManager._enableDepthTest(); else GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(true);
-        GlStateManager._enableBlend();
-        GlStateManager._disableCull();
-        GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        GlStateManager._viewport(0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight());
+        if (depthTest) GL11.glEnable(GL_DEPTH_TEST); else GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDepthMask(true);
+        GL11.glEnable(GL_BLEND);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glDisable(GL_SCISSOR_TEST);
+        GL11.glDisable(GL_STENCIL_TEST);
+        GL11.glColorMask(true, true, true, true);
+        GL20.glBlendEquationSeparate(GL14.GL_FUNC_ADD, GL14.GL_FUNC_ADD);
+        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glViewport(0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight());
 
         GL20.glUseProgram(shaderProgram);
         GL20.glUniform1i(GL20.glGetUniformLocation(shaderProgram, "ColorSampler"), 0);
@@ -232,7 +242,7 @@ public class OverlayRenderer implements Closeable {
         OverlayFramebuffer framebuffer = framebuffers.get(type);
         if (framebuffer == null || !framebuffer.dirty) return;
         framebuffer.dirty = false;
-        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         renderQuad(type == OverlayFramebufferType.DEPTH, type == OverlayFramebufferType.DEPTH, false, framebuffer.object);
     }
 
@@ -242,7 +252,86 @@ public class OverlayRenderer implements Closeable {
     }
 
     public void renderFrame() {
-        renderFramebuffer(OverlayFramebufferType.DEPTH);
-        renderFramebuffer(OverlayFramebufferType.NORMAL);
+        GlStateSnapshot state = new GlStateSnapshot();
+        try {
+            renderFramebuffer(OverlayFramebufferType.DEPTH);
+            renderFramebuffer(OverlayFramebufferType.NORMAL);
+        } finally {
+            state.restore();
+        }
+    }
+
+    /**
+     * The swap-buffer hook runs outside Minecraft's render-pass bookkeeping. Use raw OpenGL calls
+     * and restore the actual driver state so RenderSystem's cached state still matches next frame.
+     */
+    private static final class GlStateSnapshot {
+        private final int drawFramebuffer = GL11.glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
+        private final int readFramebuffer = GL11.glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
+        private final int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+        private final int vertexArray = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+        private final int activeTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        private final int texture0;
+        private final int texture1;
+        private final boolean depthTest = GL11.glIsEnabled(GL_DEPTH_TEST);
+        private final boolean blend = GL11.glIsEnabled(GL_BLEND);
+        private final boolean cull = GL11.glIsEnabled(GL_CULL_FACE);
+        private final boolean scissor = GL11.glIsEnabled(GL_SCISSOR_TEST);
+        private final boolean stencil = GL11.glIsEnabled(GL_STENCIL_TEST);
+        private final boolean depthMask = GL11.glGetBoolean(GL_DEPTH_WRITEMASK);
+        private final int blendSrcRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+        private final int blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+        private final int blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+        private final int blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+        private final int blendEquationRgb = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_RGB);
+        private final int blendEquationAlpha = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_ALPHA);
+        private final boolean[] colorMask = new boolean[4];
+        private final int[] viewport = new int[4];
+
+        private GlStateSnapshot() {
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            texture0 = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
+            GL13.glActiveTexture(GL13.GL_TEXTURE1);
+            texture1 = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
+            GL13.glActiveTexture(activeTexture);
+
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                ByteBuffer mask = stack.malloc(4);
+                GL11.glGetBooleanv(GL_COLOR_WRITEMASK, mask);
+                for (int i = 0; i < colorMask.length; i++) colorMask[i] = mask.get(i) != 0;
+
+                IntBuffer viewportBuffer = stack.mallocInt(4);
+                GL11.glGetIntegerv(GL_VIEWPORT, viewportBuffer);
+                for (int i = 0; i < viewport.length; i++) viewport[i] = viewportBuffer.get(i);
+            }
+        }
+
+        private void restore() {
+            GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer);
+            GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer);
+            GL20.glUseProgram(program);
+            GL30.glBindVertexArray(vertexArray);
+
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL_TEXTURE_2D, texture0);
+            GL13.glActiveTexture(GL13.GL_TEXTURE1);
+            GL11.glBindTexture(GL_TEXTURE_2D, texture1);
+            GL13.glActiveTexture(activeTexture);
+
+            setEnabled(GL_DEPTH_TEST, depthTest);
+            setEnabled(GL_BLEND, blend);
+            setEnabled(GL_CULL_FACE, cull);
+            setEnabled(GL_SCISSOR_TEST, scissor);
+            setEnabled(GL_STENCIL_TEST, stencil);
+            GL11.glDepthMask(depthMask);
+            GL11.glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
+            GL20.glBlendEquationSeparate(blendEquationRgb, blendEquationAlpha);
+            GL14.glBlendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
+            GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        }
+
+        private static void setEnabled(int capability, boolean enabled) {
+            if (enabled) GL11.glEnable(capability); else GL11.glDisable(capability);
+        }
     }
 }
