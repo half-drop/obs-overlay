@@ -15,5 +15,4 @@ dependencies {
         exclude(group: "net.fabricmc.fabric-api")
     }
 
-    modCompileOnlyApi("maven.modrinth:immediatelyfast:$rootProject.immediatelyfast_version-fabric")
 }

@@ -1,127 +1,153 @@
 package me.zziger.obsoverlay;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import me.zziger.obsoverlay.component.IOverlayComponent;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.*;
-import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.render.*;
-import net.minecraft.util.Identifier;
-import org.joml.Matrix4f;
+import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.gl.GlBackend;
+import net.minecraft.client.gl.SimpleFramebuffer;
+import net.minecraft.client.texture.GlTexture;
+import net.minecraft.client.texture.GlTextureView;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 
 import java.io.Closeable;
-import java.util.HashMap;
-import java.util.Objects;
+import java.util.EnumMap;
+import java.util.Map;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL30.*;
 
 public class OverlayRenderer implements Closeable {
-    static ShaderProgramKey SHADER = new ShaderProgramKey(Identifier.of("obs_overlay", "core/overlay"), VertexFormats.POSITION_TEXTURE, Defines.EMPTY);
+    private static final String VERTEX_SHADER = """
+            #version 150
+            out vec2 texCoord;
+            void main() {
+                vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+                texCoord = p;
+                gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+            }
+            """;
+    private static final String FRAGMENT_SHADER = """
+            #version 150
+            uniform sampler2D ColorSampler;
+            uniform sampler2D DepthSampler;
+            uniform int OverrideDepth;
+            in vec2 texCoord;
+            out vec4 fragColor;
+            void main() {
+                vec4 color = texture(ColorSampler, texCoord);
+                float depth = texture(DepthSampler, texCoord).r;
+                if (color.a == 0.0) discard;
+                fragColor = color;
+                gl_FragDepth = OverrideDepth == 1 && depth < 1.0 ? 0.0 : depth;
+            }
+            """;
 
-    public boolean renderingHands = false;
-    private int lastFramebuffer = 0;
-    private Framebuffer depthBackupFramebuffer = null;
-    private boolean framebufferOverridden = false;
-    private final HashMap<OverlayFramebufferType, OverlayFramebuffer> framebuffers = new HashMap<>();
+    public boolean renderingHands;
+    private int lastFramebuffer;
+    private boolean framebufferOverridden;
+    private int shaderProgram;
+    private int vertexArray;
+    private Framebuffer depthBackupFramebuffer;
+    private final Map<OverlayFramebufferType, OverlayFramebuffer> framebuffers = new EnumMap<>(OverlayFramebufferType.class);
 
     OverlayRenderer() {
         OverlayHook.init();
         OverlayHook.subscribe(this::renderFrame);
         initializeFramebuffers();
+        initializeShader();
     }
 
+    @Override
     public void close() {
         OverlayHook.unsubscribe(this::renderFrame);
+        framebuffers.values().forEach(framebuffer -> framebuffer.object.delete());
+        if (depthBackupFramebuffer != null) depthBackupFramebuffer.delete();
+        if (shaderProgram != 0) GL20.glDeleteProgram(shaderProgram);
+        if (vertexArray != 0) GL30.glDeleteVertexArrays(vertexArray);
     }
 
     private void initializeFramebuffers() {
         MinecraftClient client = MinecraftClient.getInstance();
+        int width = client.getWindow().getFramebufferWidth();
+        int height = client.getWindow().getFramebufferHeight();
+        depthBackupFramebuffer = new SimpleFramebuffer("OBS Overlay depth backup", width, height, true);
+        framebuffers.put(OverlayFramebufferType.DEPTH,
+                new OverlayFramebuffer(new SimpleFramebuffer("OBS Overlay depth", width, height, true)));
+        framebuffers.put(OverlayFramebufferType.NORMAL,
+                new OverlayFramebuffer(new SimpleFramebuffer("OBS Overlay GUI", width, height, true)));
+        beginFrame();
+    }
 
-        depthBackupFramebuffer = new SimpleFramebuffer(client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight(), true);
-        depthBackupFramebuffer.setClearColor(0, 0, 0, 0);
-        depthBackupFramebuffer.clear();
+    private void initializeShader() {
+        int vertex = compileShader(GL20.GL_VERTEX_SHADER, VERTEX_SHADER);
+        int fragment = compileShader(GL20.GL_FRAGMENT_SHADER, FRAGMENT_SHADER);
+        shaderProgram = GL20.glCreateProgram();
+        GL20.glAttachShader(shaderProgram, vertex);
+        GL20.glAttachShader(shaderProgram, fragment);
+        GL20.glLinkProgram(shaderProgram);
+        if (GL20.glGetProgrami(shaderProgram, GL20.GL_LINK_STATUS) == GL_FALSE) {
+            throw new IllegalStateException("Failed to link overlay shader: " + GL20.glGetProgramInfoLog(shaderProgram));
+        }
+        GL20.glDeleteShader(vertex);
+        GL20.glDeleteShader(fragment);
+        vertexArray = GL30.glGenVertexArrays();
+    }
 
-        Framebuffer depthFramebuffer = new SimpleFramebuffer(client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight(), true);
-        depthFramebuffer.setClearColor(0, 0, 0, 0);
-        depthFramebuffer.clear();
+    private static int compileShader(int type, String source) {
+        int shader = GL20.glCreateShader(type);
+        GL20.glShaderSource(shader, source);
+        GL20.glCompileShader(shader);
+        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL_FALSE) {
+            throw new IllegalStateException("Failed to compile overlay shader: " + GL20.glGetShaderInfoLog(shader));
+        }
+        return shader;
+    }
 
-        Framebuffer normalFramebuffer = new SimpleFramebuffer(client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight(), true);
-        normalFramebuffer.setClearColor(0, 0, 0, 0);
-        normalFramebuffer.clear();
-
-        framebuffers.put(OverlayFramebufferType.DEPTH, new OverlayFramebuffer(depthFramebuffer));
-        framebuffers.put(OverlayFramebufferType.NORMAL, new OverlayFramebuffer(normalFramebuffer));
+    public Framebuffer getFramebuffer(OverlayFramebufferType type) {
+        OverlayFramebuffer framebuffer = framebuffers.get(type);
+        return framebuffer == null ? null : framebuffer.object;
     }
 
     public boolean isFramebufferOverridden() {
         return framebufferOverridden;
     }
 
-    private void markOverlayDirty(OverlayFramebufferType type) {
-        OverlayFramebuffer framebuffer = framebuffers.getOrDefault(type, null);
-        if (framebuffer == null) return;
-        framebuffer.dirty = true;
+    private int getFramebufferId(Framebuffer framebuffer) {
+        GlBackend backend = (GlBackend) RenderSystem.getDevice();
+        return ((GlTextureView) framebuffer.getColorAttachmentView())
+                .getOrCreateFramebuffer(backend.getBufferManager(), framebuffer.getDepthAttachment());
     }
 
-    public void backupDepth(boolean fullDepth) {
+    public void backupDepth(boolean overrideDepth) {
         MinecraftClient client = MinecraftClient.getInstance();
-
-        int fb = GlStateManager._getInteger(GL_DRAW_FRAMEBUFFER_BINDING);
-        int prevDepthTest = GlStateManager._getInteger(GL_DEPTH_TEST);
-        int prevDepthMask = GlStateManager._getInteger(GL_DEPTH_WRITEMASK);
-        int prevBlend = GlStateManager._getInteger(GL_BLEND);
-        int prevCull = GlStateManager._getInteger(GL_CULL_FACE);
-
-        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, depthBackupFramebuffer.fbo);
-
-        renderQuad(false, true, fullDepth, client.getFramebuffer());
-
-        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
-
-        if (prevDepthTest == GL_TRUE) GlStateManager._enableDepthTest();
-        else GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(prevDepthMask == GL_TRUE);
-        if (prevBlend == GL_TRUE) GlStateManager._enableBlend();
-        else GlStateManager._disableBlend();
-        if (prevCull == GL_TRUE) GlStateManager._enableCull();
-        else GlStateManager._disableCull();
+        int previous = GlStateManager.getFrameBuffer(GL_DRAW_FRAMEBUFFER);
+        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, getFramebufferId(depthBackupFramebuffer));
+        renderQuad(false, true, overrideDepth, client.getFramebuffer());
+        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, previous);
     }
 
     private void backupFramebuffer() {
-        if (framebuffers.isEmpty()) return;
-        int boundFramebuffer = GlStateManager.getBoundFramebuffer();
-
-        if (boundFramebuffer != framebuffers.get(OverlayFramebufferType.NORMAL).object.fbo
-                && boundFramebuffer != framebuffers.get(OverlayFramebufferType.DEPTH).object.fbo
-                && boundFramebuffer != 0) {
-            lastFramebuffer = boundFramebuffer;
-        }
-    }
-
-    private void restoreFramebuffer() {
-        if (lastFramebuffer != 0)
-            GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, lastFramebuffer);
+        int bound = GlStateManager.getFrameBuffer(GL_DRAW_FRAMEBUFFER);
+        if (bound != 0) lastFramebuffer = bound;
     }
 
     public void beginDraw(OverlayFramebufferType type) {
-        if (framebuffers.isEmpty()) return;
-        backupFramebuffer();
-
-        OverlayFramebuffer framebuffer = framebuffers.getOrDefault(type, null);
+        OverlayFramebuffer framebuffer = framebuffers.get(type);
         if (framebuffer == null) return;
-
-        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer.object.fbo);
+        backupFramebuffer();
+        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, getFramebufferId(framebuffer.object));
         GlStateManager._enableDepthTest();
-
-        markOverlayDirty(type);
+        framebuffer.dirty = true;
         framebufferOverridden = true;
     }
 
     public void beginEmptyDraw() {
-        if (framebuffers.isEmpty()) return;
         backupFramebuffer();
-
         GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         framebufferOverridden = true;
     }
@@ -129,99 +155,90 @@ public class OverlayRenderer implements Closeable {
     public void beginDraw(IOverlayComponent component) {
         if (!component.isOverlayEnabled()) return;
         component.beforeBeginDraw();
+        if (component.getFramebufferType() == OverlayFramebufferType.NORMAL) {
+            GuiOverlayManager.begin(component.isHidden());
+            return;
+        }
         if (component.isHidden()) beginEmptyDraw();
         else beginDraw(component.getFramebufferType());
     }
 
     public void endDraw() {
-        if (framebuffers.isEmpty()) return;
-        restoreFramebuffer();
+        if (lastFramebuffer != 0) GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, lastFramebuffer);
         framebufferOverridden = false;
     }
 
     public void endDraw(IOverlayComponent component) {
         if (!component.isOverlayEnabled()) return;
         component.beforeEndDraw();
+        if (component.getFramebufferType() == OverlayFramebufferType.NORMAL) {
+            GuiOverlayManager.end();
+            return;
+        }
         endDraw();
     }
 
     public void onResolutionChanged(MinecraftClient client) {
         int width = client.getWindow().getFramebufferWidth();
         int height = client.getWindow().getFramebufferHeight();
-
-        framebuffers.forEach((type, framebuffer) -> {
-            if (framebuffer.object != null) {
-                framebuffer.object.resize(width, height);
-            }
-        });
-        if (depthBackupFramebuffer != null) {
-            depthBackupFramebuffer.resize(width, height);
-        }
+        framebuffers.values().forEach(framebuffer -> framebuffer.object.resize(width, height));
+        depthBackupFramebuffer.resize(width, height);
     }
 
     private void renderQuad(boolean writeDepth, boolean depthTest, boolean overrideDepth, Framebuffer framebuffer) {
         MinecraftClient client = MinecraftClient.getInstance();
-        ShaderProgram shaderProgram;
-
-        try {
-            shaderProgram = client.getShaderLoader().getProgramToLoad(SHADER);
-        } catch (ShaderLoader.LoadException e) {
-            return;
-        }
-
-        if (depthTest) GlStateManager._enableDepthTest();
-        else GlStateManager._disableDepthTest();
-        GlStateManager._depthMask(true);
-        GlStateManager._enableBlend();
-        GlStateManager._disableCull();
-        GlStateManager._blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        GlStateManager._viewport(0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight());
-
         if (writeDepth) {
-            GlStateManager._glBindFramebuffer(GL_READ_FRAMEBUFFER, depthBackupFramebuffer.fbo);
-            GlStateManager._glBlitFrameBuffer(0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight(),
+            GlStateManager._glBindFramebuffer(GL_READ_FRAMEBUFFER, getFramebufferId(depthBackupFramebuffer));
+            GlStateManager._glBlitFrameBuffer(0, 0, depthBackupFramebuffer.textureWidth, depthBackupFramebuffer.textureHeight,
                     0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight(),
                     GL_DEPTH_BUFFER_BIT, GL_NEAREST);
             GlStateManager._glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         }
 
-        shaderProgram.initializeUniforms(VertexFormat.DrawMode.QUADS, new Matrix4f().identity(), new Matrix4f().identity(), client.getWindow());
-        shaderProgram.addSamplerTexture("Sampler0", framebuffer.getColorAttachment());
-        shaderProgram.addSamplerTexture("Sampler1", framebuffer.getDepthAttachment());
-        Objects.requireNonNull(shaderProgram.getUniform("OverrideDepth")).set(overrideDepth ? 1 : 0);
-        shaderProgram.bind();
+        if (depthTest) GlStateManager._enableDepthTest(); else GlStateManager._disableDepthTest();
+        GlStateManager._depthMask(true);
+        GlStateManager._enableBlend();
+        GlStateManager._disableCull();
+        GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager._viewport(0, 0, client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight());
 
-        BufferBuilder bufferBuilder = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
-        bufferBuilder.vertex(-1.0f, -1.0f, 0.0F).texture(0, 0);
-        bufferBuilder.vertex(1.0f, -1.0f, 0.0F).texture(1, 0);
-        bufferBuilder.vertex(1.0f, 1.0f, 0.0F).texture(1, 1);
-        bufferBuilder.vertex(-1.0f, 1.0f, 0.0F).texture(0, 1);
-        BufferRenderer.draw(bufferBuilder.end());
-
-        shaderProgram.unbind();
+        GL20.glUseProgram(shaderProgram);
+        GL20.glUniform1i(GL20.glGetUniformLocation(shaderProgram, "ColorSampler"), 0);
+        GL20.glUniform1i(GL20.glGetUniformLocation(shaderProgram, "DepthSampler"), 1);
+        GL20.glUniform1i(GL20.glGetUniformLocation(shaderProgram, "OverrideDepth"), overrideDepth ? 1 : 0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL_TEXTURE_2D, ((GlTexture) framebuffer.getColorAttachment()).getGlId());
+        GL13.glActiveTexture(GL13.GL_TEXTURE1);
+        GL11.glBindTexture(GL_TEXTURE_2D, ((GlTexture) framebuffer.getDepthAttachment()).getGlId());
+        GL30.glBindVertexArray(vertexArray);
+        GL11.glDrawArrays(GL_TRIANGLES, 0, 3);
+        GL30.glBindVertexArray(0);
+        GL20.glUseProgram(0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
     }
 
     public void beginFrame() {
-        framebuffers.forEach((type, framebuffer) -> {
-            if (framebuffer.object != null) {
-                framebuffer.object.setClearColor(0, 0, 0, 0);
-                framebuffer.object.clear();
-            }
+        var encoder = RenderSystem.getDevice().createCommandEncoder();
+        framebuffers.values().forEach(framebuffer -> {
+            encoder.clearColorAndDepthTextures(framebuffer.object.getColorAttachment(), 0,
+                    framebuffer.object.getDepthAttachment(), 1.0);
+            framebuffer.dirty = false;
         });
-
-        if (depthBackupFramebuffer != null)
-            depthBackupFramebuffer.clear();
+        encoder.clearColorAndDepthTextures(depthBackupFramebuffer.getColorAttachment(), 0,
+                depthBackupFramebuffer.getDepthAttachment(), 1.0);
     }
 
     private void renderFramebuffer(OverlayFramebufferType type) {
-        OverlayFramebuffer framebuffer = framebuffers.getOrDefault(type, null);
-        if (framebuffer == null || framebuffer.object == null || !framebuffer.dirty) return;
-
-
+        OverlayFramebuffer framebuffer = framebuffers.get(type);
+        if (framebuffer == null || !framebuffer.dirty) return;
         framebuffer.dirty = false;
         GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         renderQuad(type == OverlayFramebufferType.DEPTH, type == OverlayFramebufferType.DEPTH, false, framebuffer.object);
+    }
 
+    public void markDirty(OverlayFramebufferType type) {
+        OverlayFramebuffer framebuffer = framebuffers.get(type);
+        if (framebuffer != null) framebuffer.dirty = true;
     }
 
     public void renderFrame() {

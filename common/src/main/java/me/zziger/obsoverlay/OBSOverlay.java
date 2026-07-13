@@ -3,7 +3,6 @@ package me.zziger.obsoverlay;
 import me.zziger.obsoverlay.api.IOverlayAPI;
 import me.zziger.obsoverlay.api.impl.DummyOverlayAPI;
 import me.zziger.obsoverlay.api.impl.NormalOverlayAPI;
-import me.zziger.obsoverlay.compat.ImmediatelyFastCompat;
 import me.zziger.obsoverlay.component.AllDefaultOverlayComponents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;

@@ -22,9 +22,12 @@ At the moment only **Windows** is supported.
 
 ## Features
 
+> [!NOTE]
+> Minecraft 1.21.11 changed world rendering to a deferred command system. The 2.0.0-beta.4 build supports HUD elements and screens; in-world element hiding is temporarily unavailable in this beta so the settings cannot give a false sense of privacy.
+
 This mod lets you hide any combination of the following components:
 
-### In-world elements
+### In-world elements (up to Minecraft 1.21.4)
 
 - Text on signs
 - Maps

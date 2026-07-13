@@ -15,13 +15,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class PlayerListHudMixin {
     @Inject(method = "render", at = @At("HEAD"))
     private void drawStart(DrawContext context, int scaledWindowWidth, Scoreboard scoreboard, ScoreboardObjective objective, CallbackInfo ci) {
-        context.draw();
         OBSOverlay.getAPI().beginDraw(AllDefaultOverlayComponents.playerList);
     }
 
     @Inject(method = "render", at = @At("RETURN"))
     private void drawEnd(DrawContext context, int scaledWindowWidth, Scoreboard scoreboard, ScoreboardObjective objective, CallbackInfo ci) {
-        context.draw();
         OBSOverlay.getAPI().endDraw(AllDefaultOverlayComponents.playerList);
     }
 }

@@ -26,6 +26,6 @@ public class AllDefaultOverlayComponents {
 
     public static void init() {
         OverlayComponentRegistry.registerComponents(debugMenu, chat, chatBar, playerList, subtitles, scoreboards, actionbar,
-                titleSubtitle, effects, mainHud, nameTag, nameTagSneaking, signText, chest, itemFrameMap, bannerCanvas, beaconBeam);
+                titleSubtitle, effects, mainHud);
     }
 }

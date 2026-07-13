@@ -13,13 +13,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class DebugHudMixin {
     @Inject(method = "render", at = @At("HEAD"))
     private void drawStart(DrawContext context, CallbackInfo ci) {
-        context.draw();
         OBSOverlay.getAPI().beginDraw(AllDefaultOverlayComponents.debugMenu);
     }
 
     @Inject(method = "render", at = @At("RETURN"))
     private void drawEnd(DrawContext context, CallbackInfo ci) {
-        context.draw();
         OBSOverlay.getAPI().endDraw(AllDefaultOverlayComponents.debugMenu);
     }
 }

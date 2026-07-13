@@ -1,6 +1,6 @@
 package me.zziger.obsoverlay.mixin;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import me.zziger.obsoverlay.OBSOverlay;
 import me.zziger.obsoverlay.OBSOverlayConfig;
 import me.zziger.obsoverlay.OverlayRenderer;

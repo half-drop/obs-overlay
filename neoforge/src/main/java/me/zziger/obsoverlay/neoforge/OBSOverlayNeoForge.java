@@ -8,7 +8,6 @@ import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.common.Mod;
 
 import me.zziger.obsoverlay.OBSOverlay;
-import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
@@ -27,8 +26,6 @@ public final class OBSOverlayNeoForge {
         // Run our common setup.
         OBSOverlay.init();
 
-        if (FMLEnvironment.dist.isClient()) {
-            registerModsPage();
-        }
+        registerModsPage();
     }
 }

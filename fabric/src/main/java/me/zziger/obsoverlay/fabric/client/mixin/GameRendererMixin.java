@@ -1,9 +1,7 @@
 package me.zziger.obsoverlay.fabric.client.mixin;
 
-import com.llamalad7.mixinextras.sugar.Local;
 import me.zziger.obsoverlay.OBSOverlay;
 import me.zziger.obsoverlay.ScreenOverlayRenderer;
-import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RenderTickCounter;
@@ -21,8 +19,8 @@ public class GameRendererMixin {
     }
 
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/Screen;renderWithTooltip(Lnet/minecraft/client/gui/DrawContext;IIF)V", shift = At.Shift.AFTER))
-    private void afterScreenRender(RenderTickCounter tickCounter, boolean tick, CallbackInfo ci, @Local(index = 10) DrawContext context) {
+    private void afterScreenRender(RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
         Screen screen = ((GameRenderer) (Object) this).getClient().currentScreen;
-        if (screen != null) ScreenOverlayRenderer.afterScreenRender(screen, context);
+        if (screen != null) ScreenOverlayRenderer.afterScreenRender(screen);
     }
 }
