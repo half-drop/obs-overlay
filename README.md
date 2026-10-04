@@ -2,7 +2,7 @@
 
 # OBS Overlay
 #### Hide things from OBS stream by making them an overlay.
-**[Fork downloads &nearr;](https://github.com/half-drop/obs-overlay/releases)** • **[Upstream Modrinth &nearr;](https://modrinth.com/mod/obs-overlay)** • **[Upstream CurseForge &nearr;](https://www.curseforge.com/minecraft/mc-mods/obs-overlay)**
+**[26.3 builds &nearr;](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3)** • **[Releases &nearr;](https://github.com/half-drop/obs-overlay/releases)** • **[Upstream Modrinth &nearr;](https://modrinth.com/mod/obs-overlay)** • **[Upstream CurseForge &nearr;](https://www.curseforge.com/minecraft/mc-mods/obs-overlay)**
 <br><br>
 <br/>
 
@@ -13,7 +13,7 @@
 This mod is **client-only**.\
 Version **2.2.0** targets **Minecraft 26.3**, using **Java 25** on **Windows with OpenGL**.
 
-Download the Fabric or NeoForge JAR from this fork's [GitHub releases](https://github.com/half-drop/obs-overlay/releases) and place it in your client's `mods` folder together with the matching dependencies below.
+Download the `obs-overlay-26.3-2.2.0` artifact from a successful [26.3 GitHub Actions build](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3), extract the JAR for your loader, and place it in your client's `mods` folder together with the matching dependencies below. Tagged versions are also published through [GitHub releases](https://github.com/half-drop/obs-overlay/releases).
 
 If you have selected Vulkan, change **Video Settings → Graphics API → Prefer OpenGL** and restart Minecraft. The overlay uses a Windows OpenGL buffer-swap hook; Vulkan rendering is currently unsupported.
 

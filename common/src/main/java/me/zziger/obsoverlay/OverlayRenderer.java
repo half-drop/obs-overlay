@@ -326,18 +326,23 @@ public class OverlayRenderer implements Closeable {
         private final int texture0;
         private final int texture1;
         private final boolean depthTest = GL11.glIsEnabled(GL_DEPTH_TEST);
-        private final boolean blend = GL11.glIsEnabled(GL_BLEND);
+        private final int drawBufferCount = GL11.glGetInteger(GL20.GL_MAX_DRAW_BUFFERS);
+        private final boolean[] blend = new boolean[drawBufferCount];
         private final boolean cull = GL11.glIsEnabled(GL_CULL_FACE);
         private final boolean scissor = GL11.glIsEnabled(GL_SCISSOR_TEST);
         private final boolean stencil = GL11.glIsEnabled(GL_STENCIL_TEST);
         private final boolean depthMask = GL11.glGetBoolean(GL_DEPTH_WRITEMASK);
-        private final int blendSrcRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
-        private final int blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
-        private final int blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
-        private final int blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
-        private final int blendEquationRgb = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_RGB);
-        private final int blendEquationAlpha = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_ALPHA);
-        private final boolean[] colorMask = new boolean[4];
+        // Indexed blend functions/equations are optional on Minecraft's OpenGL 3.3 baseline.
+        private final boolean coreIndependentBlend = org.lwjgl.opengl.GL.getCapabilities().OpenGL40;
+        private final boolean independentBlend = coreIndependentBlend
+                || org.lwjgl.opengl.GL.getCapabilities().GL_ARB_draw_buffers_blend;
+        private final int[] blendSrcRgb = new int[independentBlend ? drawBufferCount : 1];
+        private final int[] blendDstRgb = new int[blendSrcRgb.length];
+        private final int[] blendSrcAlpha = new int[blendSrcRgb.length];
+        private final int[] blendDstAlpha = new int[blendSrcRgb.length];
+        private final int[] blendEquationRgb = new int[blendSrcRgb.length];
+        private final int[] blendEquationAlpha = new int[blendSrcRgb.length];
+        private final int[] colorMask = new int[drawBufferCount];
         private final int[] viewport = new int[4];
 
         private GlStateSnapshot() {
@@ -349,8 +354,23 @@ public class OverlayRenderer implements Closeable {
 
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 ByteBuffer mask = stack.malloc(4);
-                GL11.glGetBooleanv(GL_COLOR_WRITEMASK, mask);
-                for (int i = 0; i < colorMask.length; i++) colorMask[i] = mask.get(i) != 0;
+                // Global blend/color-mask writes affect all slots, including unused attachments.
+                for (int buffer = 0; buffer < drawBufferCount; buffer++) {
+                    blend[buffer] = GL30.glIsEnabledi(GL_BLEND, buffer);
+                    GL30.glGetBooleani_v(GL_COLOR_WRITEMASK, buffer, mask);
+                    for (int channel = 0; channel < 4; channel++) {
+                        if (mask.get(channel) != 0) colorMask[buffer] |= 1 << channel;
+                    }
+                }
+
+                for (int buffer = 0; buffer < blendSrcRgb.length; buffer++) {
+                    blendSrcRgb[buffer] = getBlendParameter(GL14.GL_BLEND_SRC_RGB, buffer);
+                    blendDstRgb[buffer] = getBlendParameter(GL14.GL_BLEND_DST_RGB, buffer);
+                    blendSrcAlpha[buffer] = getBlendParameter(GL14.GL_BLEND_SRC_ALPHA, buffer);
+                    blendDstAlpha[buffer] = getBlendParameter(GL14.GL_BLEND_DST_ALPHA, buffer);
+                    blendEquationRgb[buffer] = getBlendParameter(GL20.GL_BLEND_EQUATION_RGB, buffer);
+                    blendEquationAlpha[buffer] = getBlendParameter(GL20.GL_BLEND_EQUATION_ALPHA, buffer);
+                }
 
                 IntBuffer viewportBuffer = stack.mallocInt(4);
                 GL11.glGetIntegerv(GL_VIEWPORT, viewportBuffer);
@@ -371,15 +391,37 @@ public class OverlayRenderer implements Closeable {
             GL13.glActiveTexture(activeTexture);
 
             setEnabled(GL_DEPTH_TEST, depthTest);
-            setEnabled(GL_BLEND, blend);
             setEnabled(GL_CULL_FACE, cull);
             setEnabled(GL_SCISSOR_TEST, scissor);
             setEnabled(GL_STENCIL_TEST, stencil);
             GL11.glDepthMask(depthMask);
-            GL11.glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
-            GL20.glBlendEquationSeparate(blendEquationRgb, blendEquationAlpha);
-            GL14.glBlendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
+            for (int buffer = 0; buffer < drawBufferCount; buffer++) {
+                if (blend[buffer]) GL30.glEnablei(GL_BLEND, buffer); else GL30.glDisablei(GL_BLEND, buffer);
+                int mask = colorMask[buffer];
+                GL30.glColorMaski(buffer, (mask & 1) != 0, (mask & 2) != 0, (mask & 4) != 0, (mask & 8) != 0);
+            }
+            for (int buffer = 0; buffer < blendSrcRgb.length; buffer++) {
+                if (coreIndependentBlend) {
+                    org.lwjgl.opengl.GL40.glBlendEquationSeparatei(buffer,
+                            blendEquationRgb[buffer], blendEquationAlpha[buffer]);
+                    org.lwjgl.opengl.GL40.glBlendFuncSeparatei(buffer,
+                            blendSrcRgb[buffer], blendDstRgb[buffer], blendSrcAlpha[buffer], blendDstAlpha[buffer]);
+                } else if (independentBlend) {
+                    org.lwjgl.opengl.ARBDrawBuffersBlend.glBlendEquationSeparateiARB(buffer,
+                            blendEquationRgb[buffer], blendEquationAlpha[buffer]);
+                    org.lwjgl.opengl.ARBDrawBuffersBlend.glBlendFuncSeparateiARB(buffer,
+                            blendSrcRgb[buffer], blendDstRgb[buffer], blendSrcAlpha[buffer], blendDstAlpha[buffer]);
+                } else {
+                    GL20.glBlendEquationSeparate(blendEquationRgb[buffer], blendEquationAlpha[buffer]);
+                    GL14.glBlendFuncSeparate(blendSrcRgb[buffer], blendDstRgb[buffer],
+                            blendSrcAlpha[buffer], blendDstAlpha[buffer]);
+                }
+            }
             GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        }
+
+        private int getBlendParameter(int parameter, int buffer) {
+            return independentBlend ? GL30.glGetIntegeri(parameter, buffer) : GL11.glGetInteger(parameter);
         }
 
         private static void setEnabled(int capability, boolean enabled) {

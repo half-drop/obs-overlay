@@ -9,6 +9,7 @@
 - Preserved the normal GUI blur boundary after separating overlay layers, and reset the GUI state correctly for the next frame.
 - Retained the Windows OpenGL swap hook with SDL, with explicit feedback when a different graphics backend is selected.
 - Fixed native callback lifetime and error handling, framebuffer restoration, and cleanup after failed overlay initialization.
+- Preserved per-target OpenGL blend and color-mask state used by the 26.3 multi-target rendering pipeline.
 - Updated the dependencies and release workflow; release artifacts contain the two installable loader JARs.
 
 ## 2.1.0 — Minecraft 26.2

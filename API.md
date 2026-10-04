@@ -2,7 +2,7 @@
 
 ## Installation
 
-The Minecraft 26.3 build of this fork is distributed through [GitHub releases](https://github.com/half-drop/obs-overlay/releases). Download the JAR for your loader and add it as a compile dependency. For example, with Fabric Loom 1.17:
+The Minecraft 26.3 build of this fork is available in the artifacts of successful [GitHub Actions builds](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3). Download the JAR for your loader and add it as a compile dependency. For example, with Fabric Loom 1.17:
 
 ```gradle
 dependencies {
