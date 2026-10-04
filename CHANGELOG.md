@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.0 — Minecraft 26.3
+
+- Added Minecraft 26.3 support for Fabric and NeoForge with Java 25.
+- Migrated OpenGL texture and framebuffer integration to RenderPearl and the explicit color/depth format API.
+- Updated the main HUD hooks to cover the new combined hotbar and decorations extraction method.
+- Kept HUD, screen, and tooltip strata under their enclosing overlay policy, including nested components and the chat input background.
+- Preserved the normal GUI blur boundary after separating overlay layers, and reset the GUI state correctly for the next frame.
+- Retained the Windows OpenGL swap hook with SDL, with explicit feedback when a different graphics backend is selected.
+- Fixed native callback lifetime and error handling, framebuffer restoration, and cleanup after failed overlay initialization.
+- Updated the dependencies and release workflow; release artifacts contain the two installable loader JARs.
+
 ## 2.1.0 — Minecraft 26.2
 
 - Added Minecraft 26.2 support for Fabric and NeoForge with Java 25.

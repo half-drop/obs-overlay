@@ -1,5 +1,6 @@
 package me.zziger.obsoverlay.mixin;
 
+import me.zziger.obsoverlay.OBSOverlay;
 import me.zziger.obsoverlay.OBSOverlayConfig;
 import me.zziger.obsoverlay.ScreenOverlayRenderer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -13,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ScreenMixin {
     @Inject(method = "extractBlurredBackground", at = @At("HEAD"), cancellable = true)
     private void renderBlur(CallbackInfo ci) {
-        if (OBSOverlayConfig.isScreenOverlayed((Screen) (Object) this))
+        if (OBSOverlay.getIsInitialized() && OBSOverlayConfig.isScreenOverlayed((Screen) (Object) this))
             ci.cancel();
     }
 

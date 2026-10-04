@@ -2,7 +2,7 @@
 
 # OBS Overlay
 #### Hide things from OBS stream by making them an overlay.
-**[Modrinth &nearr;](https://modrinth.com/mod/obs-overlay)** • **[CurseForge &nearr;](https://www.curseforge.com/minecraft/mc-mods/obs-overlay)** • **[Got an issue?](../../issues/new)**
+**[Fork downloads &nearr;](https://github.com/half-drop/obs-overlay/releases)** • **[Upstream Modrinth &nearr;](https://modrinth.com/mod/obs-overlay)** • **[Upstream CurseForge &nearr;](https://www.curseforge.com/minecraft/mc-mods/obs-overlay)**
 <br><br>
 <br/>
 
@@ -11,23 +11,31 @@
 ## Installation
 
 This mod is **client-only**.\
-At the moment only **Windows** is supported.
+Version **2.2.0** targets **Minecraft 26.3**, using **Java 25** on **Windows with OpenGL**.
+
+Download the Fabric or NeoForge JAR from this fork's [GitHub releases](https://github.com/half-drop/obs-overlay/releases) and place it in your client's `mods` folder together with the matching dependencies below.
+
+If you have selected Vulkan, change **Video Settings → Graphics API → Prefer OpenGL** and restart Minecraft. The overlay uses a Windows OpenGL buffer-swap hook; Vulkan rendering is currently unsupported.
 
 ### Dependencies
 
-- Cloth Config API
-- Fabric API (Fabric only)
-- Mod Menu (Optional, Fabric only)
+| Loader | Required dependencies | Optional |
+| --- | --- | --- |
+| Fabric Loader 0.19.5+ | Fabric API 0.161.0+26.3; Cloth Config 26.3.159+ | Mod Menu 21.0.0 |
+| NeoForge 26.3.0.48-beta+ | Cloth Config 26.3.159+ for NeoForge | — |
+
+Use dependency releases that explicitly support Minecraft 26.3.
 
 ## Features
 
 > [!NOTE]
-> Modern Minecraft uses deferred world and GUI rendering. Version 2.1.0 supports HUD elements and screens on Minecraft 26.2; in-world element hiding remains unavailable so the settings cannot give a false sense of privacy.
+> Modern Minecraft uses deferred world and GUI rendering. Version 2.2.0 supports the HUD elements and screens listed below on Minecraft 26.3. In-world element and name-tag hiding remain unavailable and are excluded from the settings.
 
 This mod lets you hide any combination of the following components:
 
-### In-world elements (up to Minecraft 1.21.4)
+### In-world elements (available up to Minecraft 1.21.4)
 
+- Name tags
 - Text on signs
 - Maps
 - Chests
@@ -36,7 +44,6 @@ This mod lets you hide any combination of the following components:
 
 ### HUD elements
 
-- Name tags
 - Debug menu (F3)
 - Chat (excluding input bar)
 - Chat input bar
@@ -77,6 +84,16 @@ Mod settings can be accessed by:
 
 If you want to add support for your own HUD components you can use API provided by this mod.\
 Check [API documentation](API.md) for more information.
+
+## Building
+
+Use Java 25 and the included Gradle wrapper:
+
+```sh
+./gradlew :fabric:build :neoforge:build
+```
+
+The installable JARs are `fabric/build/libs/obs_overlay-fabric-2.2.0.jar` and `neoforge/build/libs/obs_overlay-neoforge-2.2.0.jar`. Files ending in `-sources.jar` contain source code for development.
 
 ## License
 

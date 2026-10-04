@@ -1,12 +1,13 @@
 package me.zziger.obsoverlay;
 
-import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.backend.opengl.GlStateManager;
+import com.mojang.renderpearl.backend.opengl.GlTexture;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import me.zziger.obsoverlay.component.IOverlayComponent;
+import me.zziger.obsoverlay.error.OverlayHookException;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -56,52 +57,81 @@ public class OverlayRenderer implements Closeable {
     private boolean framebufferOverridden;
     private int shaderProgram;
     private int vertexArray;
+    private boolean closed;
     private RenderTarget depthBackupFramebuffer;
+    private final OverlayHook.Handler swapHandler = this::renderFrame;
     private final Map<OverlayFramebufferType, OverlayFramebuffer> framebuffers = new EnumMap<>(OverlayFramebufferType.class);
     private final Map<RenderTarget, Integer> glFramebuffers = new java.util.IdentityHashMap<>();
 
     OverlayRenderer() {
+        String backend = RenderSystem.getDevice().getDeviceInfo().backendName();
+        if (!"OpenGL".equals(backend)) {
+            throw new OverlayHookException("OBS Overlay requires OpenGL (current backend: " + backend
+                    + "). Set Graphics API to Prefer OpenGL in Video Settings and restart Minecraft.");
+        }
         OverlayHook.init();
-        OverlayHook.subscribe(this::renderFrame);
-        initializeFramebuffers();
-        initializeShader();
+        try {
+            initializeFramebuffers();
+            initializeShader();
+            // Subscribe only after every GL resource is ready; use the same handler on close.
+            OverlayHook.subscribe(swapHandler);
+        } catch (RuntimeException | Error e) {
+            try {
+                close();
+            } catch (Throwable cleanupFailure) {
+                e.addSuppressed(cleanupFailure);
+            }
+            throw e;
+        }
     }
 
     @Override
     public void close() {
-        OverlayHook.unsubscribe(this::renderFrame);
+        if (closed) return;
+        closed = true;
+        OverlayHook.unsubscribe(swapHandler);
+        framebufferOverridden = false;
         framebuffers.values().forEach(framebuffer -> framebuffer.object.destroyBuffers());
+        framebuffers.clear();
         if (depthBackupFramebuffer != null) depthBackupFramebuffer.destroyBuffers();
+        depthBackupFramebuffer = null;
         if (shaderProgram != 0) GL20.glDeleteProgram(shaderProgram);
+        shaderProgram = 0;
         if (vertexArray != 0) GL30.glDeleteVertexArrays(vertexArray);
+        vertexArray = 0;
         glFramebuffers.values().forEach(GL30::glDeleteFramebuffers);
+        glFramebuffers.clear();
     }
 
     private void initializeFramebuffers() {
         Minecraft client = Minecraft.getInstance();
         int width = client.getWindow().getWidth();
         int height = client.getWindow().getHeight();
-        depthBackupFramebuffer = new TextureTarget("OBS Overlay depth backup", width, height, true, GpuFormat.RGBA8_UNORM);
+        depthBackupFramebuffer = new TextureTarget("OBS Overlay depth backup", width, height, GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT);
         framebuffers.put(OverlayFramebufferType.DEPTH,
-                new OverlayFramebuffer(new TextureTarget("OBS Overlay depth", width, height, true, GpuFormat.RGBA8_UNORM)));
+                new OverlayFramebuffer(new TextureTarget("OBS Overlay depth", width, height, GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT)));
         framebuffers.put(OverlayFramebufferType.NORMAL,
-                new OverlayFramebuffer(new TextureTarget("OBS Overlay GUI", width, height, true, GpuFormat.RGBA8_UNORM)));
+                new OverlayFramebuffer(new TextureTarget("OBS Overlay GUI", width, height, GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT)));
         beginFrame();
     }
 
     private void initializeShader() {
         int vertex = compileShader(GL20.GL_VERTEX_SHADER, VERTEX_SHADER);
-        int fragment = compileShader(GL20.GL_FRAGMENT_SHADER, FRAGMENT_SHADER);
-        shaderProgram = GL20.glCreateProgram();
-        GL20.glAttachShader(shaderProgram, vertex);
-        GL20.glAttachShader(shaderProgram, fragment);
-        GL20.glLinkProgram(shaderProgram);
-        if (GL20.glGetProgrami(shaderProgram, GL20.GL_LINK_STATUS) == GL_FALSE) {
-            throw new IllegalStateException("Failed to link overlay shader: " + GL20.glGetProgramInfoLog(shaderProgram));
+        int fragment = 0;
+        try {
+            fragment = compileShader(GL20.GL_FRAGMENT_SHADER, FRAGMENT_SHADER);
+            shaderProgram = GL20.glCreateProgram();
+            GL20.glAttachShader(shaderProgram, vertex);
+            GL20.glAttachShader(shaderProgram, fragment);
+            GL20.glLinkProgram(shaderProgram);
+            if (GL20.glGetProgrami(shaderProgram, GL20.GL_LINK_STATUS) == GL_FALSE) {
+                throw new IllegalStateException("Failed to link overlay shader: " + GL20.glGetProgramInfoLog(shaderProgram));
+            }
+            vertexArray = GL30.glGenVertexArrays();
+        } finally {
+            GL20.glDeleteShader(vertex);
+            if (fragment != 0) GL20.glDeleteShader(fragment);
         }
-        GL20.glDeleteShader(vertex);
-        GL20.glDeleteShader(fragment);
-        vertexArray = GL30.glGenVertexArrays();
     }
 
     private static int compileShader(int type, String source) {
@@ -109,7 +139,9 @@ public class OverlayRenderer implements Closeable {
         GL20.glShaderSource(shader, source);
         GL20.glCompileShader(shader);
         if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL_FALSE) {
-            throw new IllegalStateException("Failed to compile overlay shader: " + GL20.glGetShaderInfoLog(shader));
+            String error = GL20.glGetShaderInfoLog(shader);
+            GL20.glDeleteShader(shader);
+            throw new IllegalStateException("Failed to compile overlay shader: " + error);
         }
         return shader;
     }
@@ -125,12 +157,20 @@ public class OverlayRenderer implements Closeable {
 
     private int getFramebufferId(RenderTarget framebuffer) {
         int id = glFramebuffers.computeIfAbsent(framebuffer, ignored -> GL30.glGenFramebuffers());
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, id);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                ((GlTexture) framebuffer.getColorTexture()).glId(), 0);
-        if (framebuffer.getDepthTexture() != null) {
-            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
-                    ((GlTexture) framebuffer.getDepthTexture()).glId(), 0);
+        int drawFramebuffer = GL11.glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
+        int readFramebuffer = GL11.glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
+        try {
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, id);
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                    ((GlTexture) framebuffer.getColorTexture()).glId(), 0);
+            if (framebuffer.getDepthTexture() != null) {
+                GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                        ((GlTexture) framebuffer.getDepthTexture()).glId(), 0);
+            }
+        } finally {
+            // Looking up the read FBO must not also change the active draw target.
+            GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer);
+            GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer);
         }
         return id;
     }
@@ -147,8 +187,7 @@ public class OverlayRenderer implements Closeable {
     }
 
     private void backupFramebuffer() {
-        int bound = GlStateManager.getFrameBuffer(GL_DRAW_FRAMEBUFFER);
-        if (bound != 0) lastFramebuffer = bound;
+        lastFramebuffer = GlStateManager.getFrameBuffer(GL_DRAW_FRAMEBUFFER);
     }
 
     public void beginDraw(OverlayFramebufferType type) {
@@ -179,8 +218,9 @@ public class OverlayRenderer implements Closeable {
     }
 
     public void endDraw() {
-        if (lastFramebuffer != 0) GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, lastFramebuffer);
+        // Let the framebuffer mixin accept our restore call, including the default FBO (0).
         framebufferOverridden = false;
+        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, lastFramebuffer);
     }
 
     public void endDraw(IOverlayComponent component) {
@@ -263,7 +303,7 @@ public class OverlayRenderer implements Closeable {
         // NeoForge's early loading window swaps on a helper thread with a different GL context.
         // Overlay resources belong to Minecraft's render context and must never be used there.
         Minecraft client = Minecraft.getInstance();
-        if (client == null || !client.isSameThread() || !RenderSystem.isOnRenderThread()) return;
+        if (closed || client == null || !client.isSameThread() || !RenderSystem.isOnRenderThread()) return;
         GlStateSnapshot state = new GlStateSnapshot();
         try {
             renderFramebuffer(OverlayFramebufferType.DEPTH);

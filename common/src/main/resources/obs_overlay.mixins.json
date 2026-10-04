@@ -6,7 +6,10 @@
   "client": [
     "FramebufferMixin",
     "GameRendererMixin",
+    "GuiGraphicsExtractorMixin",
+    "GuiGraphicsExtractorMixin$RenderingTextCollectorMixin",
     "GuiMixin",
+    "GuiRenderStateMixin",
     "GuiRendererMixin",
     "MinecraftClientMixin",
     "ScreenMixin",

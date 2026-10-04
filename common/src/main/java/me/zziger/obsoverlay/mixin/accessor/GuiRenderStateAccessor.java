@@ -20,4 +20,9 @@ public interface GuiRenderStateAccessor {
     @Accessor("itemModelIdentities")
     Set<Object> obsOverlay$getItemModelIdentities();
 
+    @Accessor("firstStratumAfterBlur")
+    int obsOverlay$getFirstStratumAfterBlur();
+
+    @Accessor("firstStratumAfterBlur")
+    void obsOverlay$setFirstStratumAfterBlur(int index);
 }

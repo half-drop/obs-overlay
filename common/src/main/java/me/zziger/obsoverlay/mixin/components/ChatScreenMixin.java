@@ -11,6 +11,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatScreen.class)
 public class ChatScreenMixin {
+    // The input background is extracted before the independently configurable chat history.
+    @Inject(method = "extractRenderState", at = @At("HEAD"))
+    private void drawBackgroundStart(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        OBSOverlay.getAPI().beginDraw(AllDefaultOverlayComponents.chatBar);
+    }
+
+    @Inject(method = "extractRenderState", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/ChatComponent;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V"))
+    private void drawBackgroundEnd(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        OBSOverlay.getAPI().endDraw(AllDefaultOverlayComponents.chatBar);
+    }
+
     @Inject(method = "extractRenderState", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/ChatComponent;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V", shift = At.Shift.AFTER))
     private void drawStart(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         OBSOverlay.getAPI().beginDraw(AllDefaultOverlayComponents.chatBar);

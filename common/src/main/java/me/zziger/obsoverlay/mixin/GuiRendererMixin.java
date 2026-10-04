@@ -6,7 +6,6 @@ import me.zziger.obsoverlay.OBSOverlay;
 import me.zziger.obsoverlay.OverlayFramebufferType;
 import me.zziger.obsoverlay.OverlayRenderer;
 import me.zziger.obsoverlay.mixin.accessor.GuiRenderStateAccessor;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.render.GuiRenderer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.state.gui.GuiRenderState;
@@ -32,38 +31,54 @@ public abstract class GuiRendererMixin {
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void obsOverlay$renderPartitions(CallbackInfo ci) {
         if (obsOverlay$renderingPartition) return;
+        OverlayRenderer renderer = OBSOverlay.getRenderer();
+        if (renderer == null) {
+            GuiOverlayManager.clear();
+            return;
+        }
 
         GuiRenderStateAccessor accessor = (GuiRenderStateAccessor) renderState;
         List<Object> all = new ArrayList<>(accessor.obsOverlay$getRootLayers());
         Set<Object> itemModelIdentities = Set.copyOf(accessor.obsOverlay$getItemModelIdentities());
+        int firstStratumAfterBlur = accessor.obsOverlay$getFirstStratumAfterBlur();
+        int normalStrataBeforeBlur = 0;
         List<Object> normal = new ArrayList<>();
         List<Object> overlay = new ArrayList<>();
-        for (Object layer : all) {
+        for (int i = 0; i < all.size(); i++) {
+            Object layer = all.get(i);
             if (GuiOverlayManager.isHiddenLayer(layer)) continue;
             if (GuiOverlayManager.isOverlayLayer(layer)) overlay.add(layer);
-            else normal.add(layer);
+            else {
+                normal.add(layer);
+                if (i < firstStratumAfterBlur) normalStrataBeforeBlur++;
+            }
         }
         if (overlay.isEmpty() && all.size() == normal.size()) return;
 
         obsOverlay$renderingPartition = true;
         try {
             accessor.obsOverlay$setRootLayers(normal);
+            // The blur boundary indexes the original strata. Recompute it after
+            // removing overlays so a visible menu still blurs only its background.
+            accessor.obsOverlay$setFirstStratumAfterBlur(firstStratumAfterBlur == Integer.MAX_VALUE
+                    ? Integer.MAX_VALUE : normalStrataBeforeBlur);
             ((GuiRenderer) (Object) this).render();
 
             if (!overlay.isEmpty()) {
                 accessor.obsOverlay$setRootLayers(overlay);
                 accessor.obsOverlay$getItemModelIdentities().addAll(itemModelIdentities);
                 obsOverlay$renderingOverlay = true;
-                OverlayRenderer renderer = OBSOverlay.getRenderer();
-                if (renderer != null) renderer.markDirty(OverlayFramebufferType.NORMAL);
                 ((GuiRenderer) (Object) this).render();
+                renderer.markDirty(OverlayFramebufferType.NORMAL);
                 obsOverlay$renderingOverlay = false;
             }
         } finally {
             obsOverlay$renderingOverlay = false;
             obsOverlay$renderingPartition = false;
-            accessor.obsOverlay$setRootLayers(new ArrayList<>());
             GuiOverlayManager.clear();
+            // Reset also installs a current node in the new strata list for the
+            // next extraction, rather than leaving it pointing at a discarded list.
+            renderState.reset();
         }
         ci.cancel();
     }

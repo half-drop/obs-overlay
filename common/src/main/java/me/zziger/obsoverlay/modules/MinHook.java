@@ -12,4 +12,5 @@ public interface MinHook extends StdCallLibrary {
     int MH_Initialize();
     int MH_CreateHook(Pointer method, wglSwapBuffers hook, PointerByReference origMethod);
     int MH_EnableHook(Pointer method);
+    int MH_RemoveHook(Pointer method);
 }
