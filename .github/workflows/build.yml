@@ -53,7 +53,6 @@ jobs:
         run: |
           output="$GITHUB_WORKSPACE/build/native-package/assets/obs_overlay/native/${{ matrix.platform }}"
           cmake_args=(
-            -DCMAKE_BUILD_TYPE=Release
             "-DVULKAN_HEADERS_DIR=$VULKAN_HEADERS_DIR"
             "-DGLSLANG_VALIDATOR=$GLSLANG_VALIDATOR"
             "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$output"
@@ -64,10 +63,42 @@ jobs:
           if [ "$RUNNER_OS" = Windows ]; then
             cmake_args+=(-G 'Visual Studio 17 2022' -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded)
           else
-            cmake_args+=(-G Ninja)
+            cmake_args+=(-G Ninja -DCMAKE_BUILD_TYPE=Release)
           fi
           cmake -S native/vulkan-overlay -B build/native-vulkan "${cmake_args[@]}"
           cmake --build build/native-vulkan --config Release --parallel 2
+
+      - name: Verify native exports and include license
+        env:
+          NATIVE_PLATFORM: ${{ matrix.platform }}
+        run: |
+          python - <<'PY'
+          import ctypes
+          import os
+          from pathlib import Path
+          import shutil
+
+          package = Path('build/native-package')
+          platform = os.environ['NATIVE_PLATFORM']
+          filename = 'obs_overlay_vulkan.dll' if platform.startswith('windows') else 'libobs_overlay_vulkan.so'
+          library = ctypes.CDLL(str((package / 'assets/obs_overlay/native' / platform / filename).resolve()))
+          exports = (
+              'obsvkNegotiateLoaderLayerInterfaceVersion',
+              'obsvkGetInstanceProcAddr', 'obsvkGetDeviceProcAddr',
+              'obsvkGetAbiVersion', 'obsvkIsDeviceReady', 'obsvkPublishHud',
+              'obsvkWaitHud', 'obsvkClearHud', 'obsvkGetLastError',
+          )
+          for symbol in exports:
+              getattr(library, symbol)
+          library.obsvkGetAbiVersion.argtypes = []
+          library.obsvkGetAbiVersion.restype = ctypes.c_uint32
+          if library.obsvkGetAbiVersion() != 1:
+              raise RuntimeError('The native library has an incompatible bridge ABI')
+          print(f'{platform}: loaded all {len(exports)} exports and verified bridge ABI 1')
+          licenses = package / 'META-INF/licenses'
+          licenses.mkdir(parents=True, exist_ok=True)
+          shutil.copy2('native/vulkan-overlay/LICENSE', licenses / 'obs-overlay-vulkan-LICENSE.txt')
+          PY
 
       - name: Upload native resource tree
         uses: actions/upload-artifact@v4
@@ -135,6 +166,10 @@ jobs:
               'assets/obs_overlay/native/windows-x86_64/obs_overlay_vulkan.dll': b'MZ',
               'assets/obs_overlay/native/linux-x86_64/libobs_overlay_vulkan.so': b'\x7fELF',
           }
+          licenses = {
+              'META-INF/licenses/obs-overlay-LICENSE.txt': Path('LICENSE'),
+              'META-INF/licenses/obs-overlay-vulkan-LICENSE.txt': Path('native/vulkan-overlay/LICENSE'),
+          }
           release = Path('build/release')
           release.mkdir(parents=True, exist_ok=True)
           for loader in ('fabric', 'neoforge'):
@@ -146,6 +181,9 @@ jobs:
                       if not packaged.startswith(magic) or packaged != expected:
                           raise RuntimeError(f'Invalid or mismatched native resource in {jar}: {name}')
                       print(f'{loader}: {name} sha256={hashlib.sha256(packaged).hexdigest()}')
+                  for name, source in licenses.items():
+                      if archive.read(name) != source.read_bytes():
+                          raise RuntimeError(f'Invalid or mismatched license in {jar}: {name}')
               destination = release / f"{jar.stem}-{os.environ['minecraft_version']}.jar"
               shutil.copy2(jar, destination)
           PY

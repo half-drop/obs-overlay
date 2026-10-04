@@ -29,7 +29,7 @@ public abstract class OverlayRenderer implements Closeable {
     public abstract void endDraw();
     @Override public abstract void close();
 
-    /** Called immediately before Minecraft submits its recorded GPU commands. */
+    /** Called after GUI rendering, before Minecraft schedules presentation and submits GPU commands. */
     public void finishFrame() {}
 
     public boolean isFramebufferOverridden() { return false; }

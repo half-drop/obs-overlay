@@ -7,6 +7,17 @@ def vulkanNativeResources = providers.gradleProperty('vulkanNativeResourcesDir')
         .orElse(layout.buildDirectory.dir('native-resources').map { it.asFile })
 ext.vulkanNativeResourcesDir = vulkanNativeResources
 
+ext.obsOverlayLicenses = copySpec {
+    into('META-INF/licenses') {
+        from(file('LICENSE')) {
+            rename { 'obs-overlay-LICENSE.txt' }
+        }
+        from(file('native/vulkan-overlay/LICENSE')) {
+            rename { 'obs-overlay-vulkan-LICENSE.txt' }
+        }
+    }
+}
+
 def requiredVulkanLibraries = [
         'assets/obs_overlay/native/windows-x86_64/obs_overlay_vulkan.dll',
         'assets/obs_overlay/native/linux-x86_64/libobs_overlay_vulkan.so'

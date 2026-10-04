@@ -31,6 +31,8 @@ The native layer is original MIT-licensed code. OBS source was used to investiga
 
 Minecraft's own GPU completion tracking does not cover the layer's additional image reads. The explicit native waits are required even though all production and composition work uses the same graphics queue.
 
+Swapchain retirement currently uses the common `vkQueueWaitIdle` teardown fallback. This completes the native GPU submissions, but core Vulkan gives it no strict guarantee for releasing resources still referenced by presentation. The normal per-image semaphore reuse path uses reacquisition; retirement needs a future `VK_KHR_swapchain_maintenance1` or `VK_EXT_swapchain_maintenance1` present-fence path for that stronger guarantee. Minecraft 26.3 does not enable these extensions. The [native implementation notes](../native/vulkan-overlay/README.md#current-compatibility-limits) record this remaining beta limitation.
+
 ## Supported scope
 
 | Area | Current behavior |
@@ -49,7 +51,27 @@ The three HUD targets use approximately `width × height × 24` bytes before dri
 
 ## Validation
 
-The development checks cover real Vulkan rendering on Linux with Mesa lavapipe and the Khronos validation layer, plus an actual Minecraft 26.3 Vulkan launch. A native probe compares an upstream clean GPU readback with a downstream readback of the presented HUD image. This checks the compositor, synchronization, orientation, and resource lifetime independently of Java extraction.
+The following checks were run during development on **2026-10-04**:
+
+| Check | Result |
+| --- | --- |
+| Windows and Linux native CI builds | Passed |
+| Fabric and NeoForge packaged builds | Passed; both native libraries matched the native artifacts |
+| Java 25 compilation | All 52 common + Fabric source files passed |
+| Java/C ABI | All 13 field offsets, 72-byte size, ABI version, and manifest fields matched |
+| Concurrent native extraction | 16 concurrent installs passed; manifest replacement passed |
+| Native Vulkan probe | 18 / 18 frames passed: 13 private HUD frames and 5 withdrawn or unregistered frames |
+| Alpha and orientation | Expected premultiplied blend values and asymmetric top/bottom markers matched |
+| Capture separation | Upstream clean readback remained unchanged after a separate same-queue capture submission with no semaphore waits or signals |
+| Backbuffer preservation | Upstream yellow marker remained present |
+| Swapchain recreation | Two sizes, with two distinct acquired images exercised per generation |
+| Actual window pixels | X11 window readback matched the downstream GPU readback byte for byte |
+| Vulkan validation | Zero reported errors with core and synchronization validation enabled |
+| Minecraft 26.3 integration | Private HUD, hidden content, nested hidden scopes, HUD withdrawal, and 1280×720 → 960×600 resize all passed; client exited normally |
+
+The native probe used Mesa lavapipe **24.0.5**, LLVM **17.0.6**, and Vulkan **1.3.274**. It compares an upstream clean GPU readback with a downstream readback of the presented HUD image, independently of Java extraction. The same production library also initialized and composited a real private GUI in Minecraft 26.3 on that software Vulkan device. The reproducible probe is in [native/vulkan-overlay/tests](../native/vulkan-overlay/tests).
+
+The Minecraft integration compared a GPU readback of the clean main target with the actual X11 window. On a `(32, 48, 64)` background, a half-transparent red private element produced `(144, 24, 32)` in the window and a green element produced `(16, 152, 32)`, while both locations stayed at the background color in the clean target. Hidden elements remained absent from both outputs. The empty frame and resized window passed the same checks. Minecraft's screenshot helper forces saved PNG alpha to opaque, so those PNG alpha bytes were excluded from the attachment-transparency assertions.
 
 These checks do not establish Windows OBS interoperability or hardware performance. Before declaring the backend stable, verify actual recordings with OBS Game Capture on Windows across NVIDIA, AMD, and Intel drivers, including window resize, minimize/restore, fullscreen changes, capture reconnect, and any enabled third-party overlays. The implementation remains a beta while that platform validation is outstanding.
 

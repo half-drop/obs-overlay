@@ -34,7 +34,10 @@ dependencies {
 
 processResources {
     dependsOn rootProject.tasks.named('verifyVulkanNativeResources')
-    from(rootProject.vulkanNativeResourcesDir)
+    from(rootProject.vulkanNativeResourcesDir) {
+        include 'assets/obs_overlay/native/**'
+    }
+    with rootProject.obsOverlayLicenses
     inputs.property 'version', project.version
 
     filesMatching('fabric.mod.json') {

@@ -204,7 +204,9 @@ std::shared_ptr<Submission> reserveSubmission(DeviceState &d) {
     auto submission = std::make_shared<Submission>();
     d.submissions.push_back(submission);
     VkFenceCreateInfo info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-    check(d.f.CreateFence(d.device, &info, nullptr, &submission->fence), "Creating a HUD fence failed");
+    const VkResult result = d.f.CreateFence(d.device, &info, nullptr, &submission->fence);
+    if (result != VK_SUCCESS) d.submissions.pop_back();
+    check(result, "Creating a HUD fence failed");
     return submission;
 }
 
@@ -216,9 +218,12 @@ void clearHud(DeviceState &d, SwapchainState &swap) {
 }
 
 void destroySwapResources(DeviceState &d, SwapchainState &swap) noexcept {
-    // DestroySwapchainKHR is a retirement path, never a per-frame wait. Finish
-    // native commands and the queue's pending present waits before releasing
-    // the per-image presentation semaphores.
+    // Retirement only, never a per-frame wait. This finishes native commands.
+    // The legacy core-Vulkan WSI teardown fallback below is conventional but
+    // QueueWaitIdle alone does NOT give the strict present-resource lifetime
+    // guarantee of KHR/EXT_swapchain_maintenance1 presentation fences. See the
+    // documented compatibility limit; per-image semaphore reuse during normal
+    // rendering separately relies on reacquisition and incoming render waits.
     if (swap.usedQueue) {
         VkResult result = d.f.QueueWaitIdle(swap.usedQueue);
         if (result != VK_SUCCESS) error("Waiting for the retiring swapchain failed", result);
@@ -654,7 +659,8 @@ VkResult VKAPI_CALL createDevice(VkPhysicalDevice physical, const VkDeviceCreate
         {
             std::lock_guard<std::mutex> lock(registryMutex);
             devices.emplace(raw(*out), d);
-            deviceDispatch.emplace(dispatchKey(*out), d);
+            try { deviceDispatch.emplace(dispatchKey(*out), d); }
+            catch (...) { devices.erase(raw(*out)); throw; }
         }
         return VK_SUCCESS;
     } catch (const VulkanFailure &failure) {
