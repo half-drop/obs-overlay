@@ -52,16 +52,42 @@ public final class OBSOverlay {
     }
 
     public static void initRender() {
+        shutdownRender();
         try {
-            renderer = new OverlayRenderer();
+            renderer = OverlayRenderer.create();
             api = new NormalOverlayAPI(renderer);
             initialized = true;
         } catch (Throwable e) {
             LOGGER.error("Failed to initialize OBS Overlay render", e);
-            OverlayUtils.showToast(Component.literal("Failed to initialize OBS Overlay"), Component.literal(e.getMessage()));
-
-            renderer = null;
-            api = new DummyOverlayAPI();
+            shutdownRender();
+            OverlayUtils.showToast(Component.literal("Failed to initialize OBS Overlay"),
+                    Component.literal(errorMessage(e)));
         }
+    }
+
+    public static void handleRenderFailure(RuntimeException error) {
+        LOGGER.error("OBS Overlay rendering disabled after a backend error", error);
+        shutdownRender();
+        OverlayUtils.showToast(Component.literal("OBS Overlay rendering disabled"),
+                Component.literal(errorMessage(error)));
+    }
+
+    public static void shutdownRender() {
+        OverlayRenderer previous = renderer;
+        renderer = null;
+        initialized = false;
+        api = new DummyOverlayAPI();
+        GuiOverlayManager.clear();
+        if (previous != null) {
+            try {
+                previous.close();
+            } catch (RuntimeException error) {
+                LOGGER.error("Failed to close OBS Overlay render resources", error);
+            }
+        }
+    }
+
+    private static String errorMessage(Throwable error) {
+        return error.getMessage() != null ? error.getMessage() : error.getClass().getSimpleName();
     }
 }

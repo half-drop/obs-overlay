@@ -2,6 +2,35 @@ plugins {
     id 'base'
 }
 
+def vulkanNativeResources = providers.gradleProperty('vulkanNativeResourcesDir')
+        .map { file(it) }
+        .orElse(layout.buildDirectory.dir('native-resources').map { it.asFile })
+ext.vulkanNativeResourcesDir = vulkanNativeResources
+
+def requiredVulkanLibraries = [
+        'assets/obs_overlay/native/windows-x86_64/obs_overlay_vulkan.dll',
+        'assets/obs_overlay/native/linux-x86_64/libobs_overlay_vulkan.so'
+]
+
+tasks.register('verifyVulkanNativeResources') {
+    group = 'verification'
+    description = 'Checks that both Vulkan native builds are available before packaging the mod.'
+    inputs.files(vulkanNativeResources.map { directory ->
+        requiredVulkanLibraries.collect { new File(directory, it) }
+    })
+
+    doLast {
+        requiredVulkanLibraries.each { relativePath ->
+            def library = new File(vulkanNativeResources.get(), relativePath)
+            if (!library.isFile() || library.length() == 0) {
+                throw new GradleException("Missing Vulkan native library: ${library}. " +
+                        'Build the Windows x64 and Linux x64 native targets first, then place their ' +
+                        'resource trees in build/native-resources or set -PvulkanNativeResourcesDir=<directory>.')
+            }
+        }
+    }
+}
+
 allprojects {
     group = rootProject.maven_group
     version = rootProject.mod_version

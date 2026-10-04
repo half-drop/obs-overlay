@@ -33,6 +33,8 @@ dependencies {
 }
 
 processResources {
+    dependsOn rootProject.tasks.named('verifyVulkanNativeResources')
+    from(rootProject.vulkanNativeResourcesDir)
     inputs.property 'version', project.version
 
     filesMatching('fabric.mod.json') {
