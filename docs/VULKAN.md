@@ -68,6 +68,7 @@ The following checks were run during development on **2026-10-04**:
 | Actual window pixels | X11 window readback matched the downstream GPU readback byte for byte |
 | Vulkan validation | Zero reported errors with core and synchronization validation enabled |
 | Minecraft 26.3 integration | Private HUD, hidden content, nested hidden scopes, HUD withdrawal, and 1280×720 → 960×600 resize all passed; client exited normally |
+| Packaged Fabric client | The CI JAR automatically extracted and loaded its bundled library with no library override; all three integration stages passed and all 24 production mixins applied |
 
 The native probe used Mesa lavapipe **24.0.5**, LLVM **17.0.6**, and Vulkan **1.3.274**. It compares an upstream clean GPU readback with a downstream readback of the presented HUD image, independently of Java extraction. The same production library also initialized and composited a real private GUI in Minecraft 26.3 on that software Vulkan device. The reproducible probe is in [native/vulkan-overlay/tests](../native/vulkan-overlay/tests).
 
