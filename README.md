@@ -2,7 +2,7 @@
 
 # OBS Overlay
 #### Hide things from OBS stream by making them an overlay.
-**[26.3 builds &nearr;](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3)** • **[Releases &nearr;](https://github.com/half-drop/obs-overlay/releases)** • **[Upstream Modrinth &nearr;](https://modrinth.com/mod/obs-overlay)** • **[Upstream CurseForge &nearr;](https://www.curseforge.com/minecraft/mc-mods/obs-overlay)**
+**[Vulkan beta builds &nearr;](https://github.com/half-drop/obs-overlay/actions?query=branch%3Afeat%2Fvulkan-26.3)** • **[26.3 builds &nearr;](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3)** • **[Releases &nearr;](https://github.com/half-drop/obs-overlay/releases)** • **[Upstream Modrinth &nearr;](https://modrinth.com/mod/obs-overlay)** • **[Upstream CurseForge &nearr;](https://www.curseforge.com/minecraft/mc-mods/obs-overlay)**
 <br><br>
 <br/>
 
@@ -11,11 +11,13 @@
 ## Installation
 
 This mod is **client-only**.\
-Version **2.2.0** targets **Minecraft 26.3**, using **Java 25** on **Windows with OpenGL**.
+Version **2.3.0-beta.1** targets **Minecraft 26.3**, using **Java 25** on **Windows x86_64**. It adds an experimental **Vulkan** backend alongside the existing **OpenGL** backend.
 
-Download the `obs-overlay-26.3-2.2.0` artifact from a successful [26.3 GitHub Actions build](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3), extract the JAR for your loader, and place it in your client's `mods` folder together with the matching dependencies below. Tagged versions are also published through [GitHub releases](https://github.com/half-drop/obs-overlay/releases).
+Download the `obs-overlay-26.3-2.3.0-beta.1` artifact from a successful [Vulkan branch build](https://github.com/half-drop/obs-overlay/actions?query=branch%3Afeat%2Fvulkan-26.3), extract the JAR for your loader, and place it in your client's `mods` folder together with the matching dependencies below. Remove the previous OBS Overlay JAR. The Vulkan native library is included in each JAR; installing the Vulkan SDK or registering a system layer is unnecessary.
 
-If you have selected Vulkan, change **Video Settings → Graphics API → Prefer OpenGL** and restart Minecraft. The overlay uses a Windows OpenGL buffer-swap hook; Vulkan rendering is currently unsupported.
+For Vulkan, select **Video Settings → Graphics API → Prefer Vulkan** and restart Minecraft. The mod prepares its Vulkan layer before Minecraft creates the graphics device. Use OBS **Game Capture** and check the test icon in both the game and an actual recording. Display Capture and Window Capture can include the final local HUD. See [Vulkan implementation and validation](docs/VULKAN.md) for the capture order, current verification status, and developer build instructions.
+
+The stable **2.2.0** OpenGL build remains available on the [26.3 branch](https://github.com/half-drop/obs-overlay/tree/26.3).
 
 ### Dependencies
 
@@ -29,7 +31,7 @@ Use dependency releases that explicitly support Minecraft 26.3.
 ## Features
 
 > [!NOTE]
-> Modern Minecraft uses deferred world and GUI rendering. Version 2.2.0 supports the HUD elements and screens listed below on Minecraft 26.3. In-world element and name-tag hiding remain unavailable and are excluded from the settings.
+> Modern Minecraft uses deferred world and GUI rendering. The Minecraft 26.3 versions support the HUD elements and screens listed below. In-world element and name-tag hiding remain unavailable and are excluded from the settings.
 
 This mod lets you hide any combination of the following components:
 
@@ -87,13 +89,13 @@ Check [API documentation](API.md) for more information.
 
 ## Building
 
-Use Java 25 and the included Gradle wrapper:
+Use Java 25 and the included Gradle wrapper. Build both native libraries first and place their resource trees in `build/native-resources`, as described in [the native build instructions](docs/VULKAN.md#building). The GitHub Actions workflow performs these steps automatically.
 
 ```sh
 ./gradlew :fabric:build :neoforge:build
 ```
 
-The installable JARs are `fabric/build/libs/obs_overlay-fabric-2.2.0.jar` and `neoforge/build/libs/obs_overlay-neoforge-2.2.0.jar`. Files ending in `-sources.jar` contain source code for development.
+The installable JARs are `fabric/build/libs/obs_overlay-fabric-2.3.0-beta.1.jar` and `neoforge/build/libs/obs_overlay-neoforge-2.3.0-beta.1.jar`. Files ending in `-sources.jar` contain source code for development.
 
 ## License
 

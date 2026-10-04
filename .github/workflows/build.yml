@@ -5,11 +5,13 @@ on:
   push:
     branches:
       - '26.3'
+      - 'feat/vulkan-26.3'
     tags:
       - '26.3/*'
   pull_request:
     branches:
       - '26.3'
+      - 'feat/vulkan-26.3'
 
 permissions:
   contents: read
@@ -19,22 +21,119 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  native:
+    name: Native Vulkan layer (${{ matrix.platform }})
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/26.3' || github.ref == 'refs/heads/feat/vulkan-26.3' || startsWith(github.ref, 'refs/tags/26.3/')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: windows-x86_64
+            artifact: obs-overlay-vulkan-native-windows-x86_64
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+            artifact: obs-overlay-vulkan-native-linux-x86_64-experimental
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python for native build tools
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch pinned Vulkan headers and shader compiler
+        run: python .github/scripts/prepare_native_tools.py --platform '${{ matrix.platform }}'
+
+      - name: Compile shaders and native Vulkan layer
+        run: |
+          output="$GITHUB_WORKSPACE/build/native-package/assets/obs_overlay/native/${{ matrix.platform }}"
+          cmake_args=(
+            "-DVULKAN_HEADERS_DIR=$VULKAN_HEADERS_DIR"
+            "-DGLSLANG_VALIDATOR=$GLSLANG_VALIDATOR"
+            "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$output"
+            "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=$output"
+            "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$output"
+            "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE=$output"
+          )
+          if [ "$RUNNER_OS" = Windows ]; then
+            cmake_args+=(-G 'Visual Studio 17 2022' -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded)
+          else
+            cmake_args+=(-G Ninja -DCMAKE_BUILD_TYPE=Release)
+          fi
+          cmake -S native/vulkan-overlay -B build/native-vulkan "${cmake_args[@]}"
+          cmake --build build/native-vulkan --config Release --parallel 2
+
+      - name: Verify native exports and include license
+        env:
+          NATIVE_PLATFORM: ${{ matrix.platform }}
+        run: |
+          python - <<'PY'
+          import ctypes
+          import os
+          from pathlib import Path
+          import shutil
+
+          package = Path('build/native-package')
+          platform = os.environ['NATIVE_PLATFORM']
+          filename = 'obs_overlay_vulkan.dll' if platform.startswith('windows') else 'libobs_overlay_vulkan.so'
+          library = ctypes.CDLL(str((package / 'assets/obs_overlay/native' / platform / filename).resolve()))
+          exports = (
+              'obsvkNegotiateLoaderLayerInterfaceVersion',
+              'obsvkGetInstanceProcAddr', 'obsvkGetDeviceProcAddr',
+              'obsvkGetAbiVersion', 'obsvkIsDeviceReady', 'obsvkPublishHud',
+              'obsvkWaitHud', 'obsvkClearHud', 'obsvkGetLastError',
+          )
+          for symbol in exports:
+              getattr(library, symbol)
+          library.obsvkGetAbiVersion.argtypes = []
+          library.obsvkGetAbiVersion.restype = ctypes.c_uint32
+          if library.obsvkGetAbiVersion() != 1:
+              raise RuntimeError('The native library has an incompatible bridge ABI')
+          print(f'{platform}: loaded all {len(exports)} exports and verified bridge ABI 1')
+          licenses = package / 'META-INF/licenses'
+          licenses.mkdir(parents=True, exist_ok=True)
+          shutil.copy2('native/vulkan-overlay/LICENSE', licenses / 'obs-overlay-vulkan-LICENSE.txt')
+          PY
+
+      - name: Upload native resource tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: build/native-package/
+          if-no-files-found: error
+          retention-days: 30
+
   build:
-    name: "Build and Release"
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/26.3' || startsWith(github.ref, 'refs/tags/26.3/')
+    name: Package Fabric and NeoForge
+    needs: native
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
+    outputs:
+      mod_version: ${{ steps.properties.outputs.mod_version }}
+      minecraft_version: ${{ steps.properties.outputs.minecraft_version }}
+      supported_version: ${{ steps.properties.outputs.supported_version }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Read mod properties
+        id: properties
         run: |
-          sed -nE 's/^(mod_version|minecraft_version|supported_version|archives_name)[[:space:]]*=[[:space:]]*(.*)$/\1=\2/p' gradle.properties >> "$GITHUB_ENV"
+          sed -nE 's/^(mod_version|minecraft_version|supported_version|archives_name)[[:space:]]*=[[:space:]]*(.*)$/\1=\2/p' gradle.properties | tee -a "$GITHUB_ENV" >> "$GITHUB_OUTPUT"
 
       - name: Validate release tag
         if: startsWith(github.ref, 'refs/tags/')
         run: test "$GITHUB_REF_NAME" = "$minecraft_version/$mod_version"
+
+      - name: Download both native platforms
+        uses: actions/download-artifact@v4
+        with:
+          pattern: obs-overlay-vulkan-native-*
+          merge-multiple: true
+          path: build/native-resources
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4
@@ -48,30 +147,46 @@ jobs:
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@v4
 
-      - name: Setup and Build with Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-disabled: false
 
-      - name: Build with Gradle
-        run: |
-          for attempt in 1 2 3; do
-            ./gradlew :fabric:build :neoforge:build --stacktrace --no-daemon && exit 0
-            if [ "$attempt" -eq 3 ]; then
-              exit 1
-            fi
-            echo "Build failed; retrying in 15 seconds (attempt $((attempt + 1))/3)..."
-            sleep 15
-          done
+      - name: Build both mod loaders with bundled native libraries
+        run: ./gradlew :fabric:build :neoforge:build --stacktrace --no-daemon
 
-      - name: Prepare JARs
+      - name: Verify native libraries in both JARs and prepare release files
         run: |
-          mkdir -p build/release
-          for loader in fabric neoforge; do
-            jar="$loader/build/libs/$archives_name-$loader-$mod_version.jar"
-            test -s "$jar"
-            cp "$jar" "build/release/$archives_name-$loader-$mod_version-$minecraft_version.jar"
-          done
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import shutil
+          import zipfile
+
+          natives = {
+              'assets/obs_overlay/native/windows-x86_64/obs_overlay_vulkan.dll': b'MZ',
+              'assets/obs_overlay/native/linux-x86_64/libobs_overlay_vulkan.so': b'\x7fELF',
+          }
+          licenses = {
+              'META-INF/licenses/obs-overlay-LICENSE.txt': Path('LICENSE'),
+              'META-INF/licenses/obs-overlay-vulkan-LICENSE.txt': Path('native/vulkan-overlay/LICENSE'),
+          }
+          release = Path('build/release')
+          release.mkdir(parents=True, exist_ok=True)
+          for loader in ('fabric', 'neoforge'):
+              jar = Path(loader, 'build', 'libs', f"{os.environ['archives_name']}-{loader}-{os.environ['mod_version']}.jar")
+              with zipfile.ZipFile(jar) as archive:
+                  for name, magic in natives.items():
+                      packaged = archive.read(name)
+                      expected = (Path('build/native-resources') / name).read_bytes()
+                      if not packaged.startswith(magic) or packaged != expected:
+                          raise RuntimeError(f'Invalid or mismatched native resource in {jar}: {name}')
+                      print(f'{loader}: {name} sha256={hashlib.sha256(packaged).hexdigest()}')
+                  for name, source in licenses.items():
+                      if archive.read(name) != source.read_bytes():
+                          raise RuntimeError(f'Invalid or mismatched license in {jar}: {name}')
+              destination = release / f"{jar.stem}-{os.environ['minecraft_version']}.jar"
+              shutil.copy2(jar, destination)
+          PY
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -81,14 +196,27 @@ jobs:
           retention-days: 30
           path: build/release/*.jar
 
+  release:
+    name: Publish tagged release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/26.3/')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download packaged JARs
+        uses: actions/download-artifact@v4
+        with:
+          name: obs-overlay-${{ needs.build.outputs.minecraft_version }}-${{ needs.build.outputs.mod_version }}
+          path: build/release
+
       - name: Create release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ env.mod_version }} - Minecraft ${{ env.supported_version }}
+          name: ${{ needs.build.outputs.mod_version }} - Minecraft ${{ needs.build.outputs.supported_version }}
+          prerelease: ${{ contains(needs.build.outputs.mod_version, '-') }}
+          make_latest: ${{ contains(needs.build.outputs.mod_version, '-') && 'false' || 'true' }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: build/release/*.jar

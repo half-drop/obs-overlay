@@ -2,11 +2,11 @@
 
 ## Installation
 
-The Minecraft 26.3 build of this fork is available in the artifacts of successful [GitHub Actions builds](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3). Download the JAR for your loader and add it as a compile dependency. For example, with Fabric Loom 1.17:
+The Minecraft 26.3 Vulkan beta is available in the artifacts of successful [GitHub Actions builds](https://github.com/half-drop/obs-overlay/actions?query=branch%3Afeat%2Fvulkan-26.3). Download the JAR for your loader and add it as a compile dependency. For example, with Fabric Loom 1.17:
 
 ```gradle
 dependencies {
-    compileOnly files('libs/obs_overlay-fabric-2.2.0-26.3.jar')
+    compileOnly files('libs/obs_overlay-fabric-2.3.0-beta.1-26.3.jar')
 }
 ```
 
@@ -29,9 +29,11 @@ try {
 }
 ```
 
-Here `component` is a registered `HUDOverlayComponent` or another `IOverlayComponent` using the `NORMAL` framebuffer type. Minecraft 26.3 extracts GUI render states before drawing them. The component scope marks those states for the overlay pass, including strata created inside the scope and nested components. The overlay is composited locally at the Windows OpenGL buffer swap. Submit your GUI elements during extraction; wrapping an arbitrary later GPU command does not provide this isolation.
+Here `component` is a registered `HUDOverlayComponent` or another `IOverlayComponent` using the `NORMAL` framebuffer type. Minecraft 26.3 extracts GUI render states before drawing them. The component scope marks those states for the overlay pass, including strata created inside the scope and nested components. The active graphics backend composites the resulting transparent HUD locally: at the Windows OpenGL buffer swap, or in the Vulkan layer before presentation. Submit your GUI elements during extraction; wrapping an arbitrary later GPU command does not provide this isolation.
 
 In-world element hiding is unavailable in this version. The low-level framebuffer overloads are retained for existing integrations, but the component-based extraction API is the supported path for GUI elements.
+
+On Vulkan, the low-level `NORMAL` scope also marks extracted GUI strata. `DEPTH` scopes and `backupDepth` have no effect. Do not cast the renderer's textures to OpenGL classes. Do not retain a framebuffer or native image handle across frames or resizes: the Vulkan backend rotates HUD textures and owns their lifetime. Retrieve `OBSOverlay.getAPI()` for each scope so a backend failure can safely disable the integration.
 
 ### Adding your own HUD components to settings
 

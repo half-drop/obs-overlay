@@ -2,6 +2,7 @@ package me.zziger.obsoverlay.mixin;
 
 import me.zziger.obsoverlay.OBSOverlay;
 import me.zziger.obsoverlay.OverlayRenderer;
+import me.zziger.obsoverlay.error.OverlayHookException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.main.GameConfig;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,14 +20,29 @@ public class MinecraftClientMixin {
     @Inject(method = "framebufferSizeChanged", at = @At("RETURN"))
     private void onResolutionChanged(CallbackInfo ci) {
         OverlayRenderer renderer = OBSOverlay.getRenderer();
-        if (renderer != null)
-            renderer.onResolutionChanged((Minecraft)(Object)this);
+        if (renderer != null) {
+            try {
+                renderer.onResolutionChanged((Minecraft)(Object)this);
+            } catch (OverlayHookException error) {
+                OBSOverlay.handleRenderFailure(error);
+            }
+        }
     }
 
-    @Inject(method = "runTick(Z)V", at = @At("HEAD"))
+    @Inject(method = "renderFrame(Z)V", at = @At("HEAD"))
     private void onRender(boolean tick, CallbackInfo ci) {
         OverlayRenderer renderer = OBSOverlay.getRenderer();
-        if (renderer != null)
-            renderer.beginFrame();
+        if (renderer != null) {
+            try {
+                renderer.beginFrame();
+            } catch (OverlayHookException error) {
+                OBSOverlay.handleRenderFailure(error);
+            }
+        }
+    }
+
+    @Inject(method = "close()V", at = @At("HEAD"))
+    private void obsOverlay$closeRenderer(CallbackInfo ci) {
+        OBSOverlay.shutdownRender();
     }
 }

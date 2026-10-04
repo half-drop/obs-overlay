@@ -35,6 +35,11 @@ dependencies {
 }
 
 processResources {
+    dependsOn rootProject.tasks.named('verifyVulkanNativeResources')
+    from(rootProject.vulkanNativeResourcesDir) {
+        include 'assets/obs_overlay/native/**'
+    }
+    with rootProject.obsOverlayLicenses
     inputs.property 'version', project.version
 
     filesMatching('META-INF/neoforge.mods.toml') {
