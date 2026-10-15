@@ -109,3 +109,14 @@ Then run:
 Use `-PvulkanNativeResourcesDir=/absolute/path/to/resource-tree` to select another resource directory. Packaging fails when either library is missing. CI additionally compares the packaged native bytes with the corresponding build artifact.
 
 For Linux development launches, add `-Dobs_overlay.vulkan.linuxTest=true`. To use a locally rebuilt library, also set `-Dobs_overlay.vulkan.library=/absolute/path/to/libobs_overlay_vulkan.so`. These are Java system properties, supplied before the client starts. Normal Windows installations use the packaged DLL automatically.
+
+## Windows hardware acceptance
+
+Use the [Windows 10 / RTX 5080 / OBS Game Capture procedure](WINDOWS_OBS_ACCEPTANCE.md)
+and the standard-library Python collector in `tools/windows-validation/validate.py`.
+It records build identity, environment, logs and explicitly asserted manual
+results for isolation, resize/fullscreen, reconnect, normal/forced exit and soak.
+As of 2026-10-15 these Windows hardware cases are **not run**. CI packaging and
+Linux probe results above retain their original scope. Passing the procedure
+would provide device-specific behavioral evidence; the presentation-retirement
+synchronization limitation remains unresolved independently.
