@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3.0-beta.1 — Vulkan HUD backend for Minecraft 26.3
+
+- Added an original MIT-licensed Vulkan layer for Windows x86_64 and a Linux build for development validation.
+- Prepared and enabled the explicit layer before Minecraft creates its Vulkan instance, preserving existing layer paths and validation layers.
+- Split graphics operations into OpenGL and Vulkan backends while sharing the GUI component and screen policies.
+- Rendered private HUD strata into three transparent textures and alpha-composited them into the presented swapchain image, preserving existing backbuffer contents.
+- Bound the native publication to Minecraft's exact device, graphics queue, and active swapchain. Preserved Minecraft's present orientation and UNORM color values.
+- Added native fence waits before HUD image reuse, resize, or teardown, and per-swapchain-image presentation semaphores.
+- Withdrew the HUD publication on empty frames, and disabled overlay rendering with an error message if initialization or a bridge operation fails.
+- Added Windows and Linux native CI builds, shader compilation, dependency checksum verification, and checks that both loader JARs contain the matching libraries.
+- Kept in-world element hiding unavailable. Vulkan remains a beta pending Windows OBS Game Capture validation across hardware and third-party overlays; see `docs/VULKAN.md`.
+
 ## 2.2.0 — Minecraft 26.3
 
 - Added Minecraft 26.3 support for Fabric and NeoForge with Java 25.

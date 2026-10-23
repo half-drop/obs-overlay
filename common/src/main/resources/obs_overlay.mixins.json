@@ -20,7 +20,13 @@
     "components.DebugHudMixin",
     "components.InGameHudMixin",
     "components.PlayerListHudMixin",
-    "components.SubtitlesHudMixin"
+    "components.SubtitlesHudMixin",
+    "vulkan.NativeLibrariesBootstrapMixin",
+    "vulkan.VulkanInstanceMixin",
+    "vulkan.FrontendGpuDeviceAccessor",
+    "vulkan.FrontendGpuSurfaceAccessor",
+    "vulkan.VulkanGpuSurfaceAccessor",
+    "vulkan.MinecraftVulkanMixin"
   ],
   "mixins": [
   ],
