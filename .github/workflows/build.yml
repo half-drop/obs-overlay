@@ -2,6 +2,11 @@ name: Build and Release (26.3)
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish this version after a successful build
+        type: boolean
+        default: false
   push:
     branches:
       - '26.3'
@@ -72,6 +77,8 @@ jobs:
             test -s "$jar"
             cp "$jar" "build/release/$archives_name-$loader-$mod_version-$minecraft_version.jar"
           done
+          cd build/release
+          sha256sum *.jar > SHA256SUMS
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -79,16 +86,34 @@ jobs:
           name: obs-overlay-${{ env.minecraft_version }}-${{ env.mod_version }}
           if-no-files-found: error
           retention-days: 30
-          path: build/release/*.jar
+          path: |
+            build/release/*.jar
+            build/release/SHA256SUMS
 
       - name: Create release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: >-
+          startsWith(github.ref, 'refs/tags/26.3/') ||
+          (github.event_name == 'workflow_dispatch' && inputs.publish) ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/26.3' && contains(github.event.head_commit.message, '[release]'))
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ env.minecraft_version }}/${{ env.mod_version }}
+          target_commitish: ${{ github.sha }}
           name: ${{ env.mod_version }} - Minecraft ${{ env.supported_version }}
+          prerelease: ${{ contains(env.mod_version, '-') }}
+          make_latest: ${{ contains(env.mod_version, '-') && 'false' || 'true' }}
+          body: |
+            Minecraft 26.3 client mod for Fabric and NeoForge. Requires Java 25 and the matching dependencies listed in the README.
+
+            This version supports Windows with OpenGL. Select Video Settings → Graphics API → Prefer OpenGL and restart Minecraft. Vulkan support is distributed separately as an experimental 2.3.0 beta.
+
+            HUD and screen isolation are supported; in-world elements and name-tag hiding remain unavailable. Use OBS Game Capture and verify the test icon in a saved recording before relying on hiding.
+
+            Both loader JARs are built by this workflow. This publication does not add a Windows OBS recording validation result.
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: build/release/*.jar
+          files: |
+            build/release/*.jar
+            build/release/SHA256SUMS

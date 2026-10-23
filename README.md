@@ -13,7 +13,7 @@
 This mod is **client-only**.\
 Version **2.2.0** targets **Minecraft 26.3**, using **Java 25** on **Windows with OpenGL**.
 
-Download the `obs-overlay-26.3-2.2.0` artifact from a successful [26.3 GitHub Actions build](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3), extract the JAR for your loader, and place it in your client's `mods` folder together with the matching dependencies below. Tagged versions are also published through [GitHub releases](https://github.com/half-drop/obs-overlay/releases).
+Download the Fabric or NeoForge JAR from the [2.2.0 release](https://github.com/half-drop/obs-overlay/releases/tag/26.3/2.2.0) and place it in your client's `mods` folder together with the matching dependencies below. Remove the previous OBS Overlay JAR. The release includes `SHA256SUMS` for both installation files. Development builds remain available as [GitHub Actions artifacts](https://github.com/half-drop/obs-overlay/actions?query=branch%3A26.3).
 
 If you have selected Vulkan, change **Video Settings → Graphics API → Prefer OpenGL** and restart Minecraft. The overlay uses a Windows OpenGL buffer-swap hook; Vulkan rendering is currently unsupported.
 
