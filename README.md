@@ -6,6 +6,11 @@
 <br><br>
 <br/>
 
+> [!IMPORTANT]
+> **Minecraft 26.3 is available:** [Download 2.2.0 (OpenGL)](https://github.com/half-drop/obs-overlay/releases/tag/26.3/2.2.0) · [26.3 installation and dependencies](https://github.com/half-drop/obs-overlay/blob/26.3/README.md).
+> Requires Java 25; Fabric and NeoForge are supported. Experimental Vulkan support is tracked in [PR #2](https://github.com/half-drop/obs-overlay/pull/2).
+> This default branch contains the legacy Minecraft 1.21 source and documentation.
+
 ![Preview](.github/preview.png)
 
 ## Installation
