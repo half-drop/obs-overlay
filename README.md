@@ -13,11 +13,11 @@
 This mod is **client-only**.\
 Version **2.3.0-beta.1** targets **Minecraft 26.3**, using **Java 25** on **Windows x86_64**. It adds an experimental **Vulkan** backend alongside the existing **OpenGL** backend.
 
-Download the `obs-overlay-26.3-2.3.0-beta.1` artifact from a successful [Vulkan branch build](https://github.com/half-drop/obs-overlay/actions?query=branch%3Afeat%2Fvulkan-26.3), extract the JAR for your loader, and place it in your client's `mods` folder together with the matching dependencies below. Remove the previous OBS Overlay JAR. The Vulkan native library is included in each JAR; installing the Vulkan SDK or registering a system layer is unnecessary.
+Download the Fabric or NeoForge JAR from the [2.3.0-beta.1 prerelease](https://github.com/half-drop/obs-overlay/releases/tag/26.3/2.3.0-beta.1) and place it in your client's `mods` folder together with the matching dependencies below. The release includes `SHA256SUMS`; development builds remain available as [Vulkan branch artifacts](https://github.com/half-drop/obs-overlay/actions?query=branch%3Afeat%2Fvulkan-26.3). Remove the previous OBS Overlay JAR. The Vulkan native library is included in each JAR; installing the Vulkan SDK or registering a system layer is unnecessary.
 
 For Vulkan, select **Video Settings → Graphics API → Prefer Vulkan** and restart Minecraft. The mod prepares its Vulkan layer before Minecraft creates the graphics device. Use OBS **Game Capture** and check the test icon in both the game and an actual recording. Display Capture and Window Capture can include the final local HUD. See [Vulkan implementation and validation](docs/VULKAN.md) for the capture order, current verification status, and developer build instructions.
 
-The stable **2.2.0** OpenGL build remains available on the [26.3 branch](https://github.com/half-drop/obs-overlay/tree/26.3).
+The **2.2.0** OpenGL build is available in its [GitHub release](https://github.com/half-drop/obs-overlay/releases/tag/26.3/2.2.0). Vulkan remains experimental; Windows OBS recording validation and strict presentation-resource retirement are still outstanding.
 
 ### Dependencies
 
